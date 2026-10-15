@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { visibleSpaces } from "@/lib/space";
 import { listCampaigns } from "@/lib/store";
 import CampaignList from "@/components/CampaignList";
 
@@ -6,7 +7,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Campaigns — Earmark" };
 
 export default async function Campaigns() {
-  const cs = (await listCampaigns()).filter((c) => !["rejected", "verifying", "needs_review"].includes(c.status));
+  const cs = (await listCampaigns(await visibleSpaces())).filter((c) => !["rejected", "verifying", "needs_review"].includes(c.status));
   return (
     <div className="wrap">
       <div className="page-head">

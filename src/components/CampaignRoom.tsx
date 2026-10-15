@@ -106,7 +106,7 @@ export default function CampaignRoom({ id }: { id: string }) {
               <strong>Protected.</strong> Earmark caught {c.protectedCopies === 1 ? "a copy" : `${c.protectedCopies} copies`} of this campaign&apos;s documents in other campaigns and held {c.protectedCopies === 1 ? "it" : "them"}. Donors can only give here. <Link href="/radar">See the reuse radar</Link>
             </div>
           )}
-          {c.settlement && <Settlement c={c} hosp={hosp} />}
+          {c.settlement && <Settlement c={c} hosp={hosp} act={act} />}
           {c.billReview && <BillReviewSection c={c} />}
 
           <section className="section" aria-labelledby="verif" style={{ marginTop: c.settlement || c.billReview ? 28 : 6 }}>
@@ -354,6 +354,11 @@ function DonatePanel({ c, status, act, reload }: { c: CampaignView; status: Stat
               {busy ? "Adding donors…" : "Add 8 simulated donors (mock mode)"}
             </button>
           )}
+          {status?.paypal === "mock" && c.donations.some((d) => d.status === "held") && (
+            <button className="btn ghost sm" disabled={busy} onClick={async () => { setBusy(true); try { await act({ action: "simulate_expired_hold" }); await reload(); } finally { setBusy(false); } }}>
+              Expire one hold (test settlement)
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -553,7 +558,7 @@ function AskPanel({ act }: { act: (b: Record<string, unknown>) => Promise<unknow
 }
 
 function DonorList({ c }: { c: CampaignView }) {
-  const ds = c.donations.filter((d) => ["held", "captured", "voided"].includes(d.status)).slice().reverse();
+  const ds = c.donations.filter((d) => ["held", "captured", "voided", "lapsed", "failed"].includes(d.status)).slice().reverse();
   if (!ds.length) return null;
   return (
     <div className="card">
@@ -565,7 +570,7 @@ function DonorList({ c }: { c: CampaignView }) {
             <div style={{ textAlign: "right" }}>
               <b className="num">{money(d.pledged, c.currency)}</b>
               <div className="tiny">
-                {d.status === "held" ? <span className="pill held">Held</span> : (
+                {d.status === "held" ? <span className="pill held">Held</span> : d.status === "lapsed" || d.status === "failed" ? <span className="pill" title={d.problem}>Not collected</span> : (
                   <Link href={`/c/${c.id}/receipt/${d.id}`}>Receipt</Link>
                 )}
               </div>
@@ -607,8 +612,18 @@ function BillReviewSection({ c }: { c: CampaignView }) {
   );
 }
 
-function Settlement({ c, hosp }: { c: CampaignView; hosp: string }) {
+function Confirmed({ m }: { m?: { confirmed?: { via: string; status?: string } } }) {
+  if (!m) return null;
+  if (!m.confirmed) return <span className="pill warn" title="Requested; PayPal hasn't confirmed it yet">Awaiting PayPal</span>;
+  if (m.confirmed.via === "mock") return <span className="pill" title="Mock mode: no real PayPal">Mock</span>;
+  return <span className="pill paid" title={`Confirmed by PayPal (${m.confirmed.via === "webhook" ? "signed webhook" : "API check"})`}>Confirmed by PayPal</span>;
+}
+
+function Settlement({ c, hosp, act }: { c: CampaignView; hosp: string; act: (b: Record<string, unknown>) => Promise<unknown> }) {
   const s = c.settlement!;
+  const [busy, setBusy] = useState(false);
+  const payoutFor = (name: string) => c.movements.find((m) => m.type === "payout" && m.payee === name);
+  const unconfirmed = c.movements.some((m) => !m.confirmed);
   const best = c.donations.filter((d) => d.status === "captured").sort((a, b) => Number(b.pledged) - Number(a.pledged))[0];
   return (
     <section className="section" aria-labelledby="settle" style={{ marginTop: 6 }}>
@@ -617,17 +632,33 @@ function Settlement({ c, hosp }: { c: CampaignView; hosp: string }) {
         <div className="card">
           <div className="legend" style={{ marginTop: 0 }}>
             {(s.payees?.length ? s.payees : [{ name: hosp, amount: s.captured }]).map((p) => (
-              <div key={p.name}><i style={{ background: "var(--paid)" }} /><span>Paid directly to {p.name}</span><b>{money(p.amount, c.currency)}</b></div>
+              <div key={p.name}><i style={{ background: "var(--paid)" }} /><span>Paid directly to {p.name} {!s.direct && <Confirmed m={payoutFor(p.name)} />}</span><b>{money(p.amount, c.currency)}</b></div>
             ))}
             <div><i style={{ background: "var(--never-fill)" }} /><span>Never charged to donors</span><b>{money(s.neverCharged, c.currency)}</b></div>
             <div><i style={{ background: "var(--muted)" }} /><span>Paid to the family</span><b>{money(0, c.currency)}</b></div>
           </div>
+          {(s.lapsed ?? 0) > 0 && (
+            <p className="small" style={{ marginTop: 12 }}>
+              <strong>{s.lapsed} pledge{s.lapsed! > 1 ? "s" : ""} couldn&apos;t be collected</strong> (the PayPal hold had expired or was declined). {s.lapsed! > 1 ? "Those donors were" : "That donor was"} not charged, and the share was spread across the other pledges.
+            </p>
+          )}
+          {Number(s.shortfall ?? 0) > 0 && (
+            <p className="small" style={{ marginTop: 8, color: "var(--warn)" }}>
+              <strong>Shortfall {money(s.shortfall!, c.currency)}.</strong> Pledges didn&apos;t cover all verified costs. The hospital was paid first; the family can start a follow-up campaign for the rest.
+            </p>
+          )}
           <p className="tiny muted" style={{ marginTop: 12 }}>
-            Every donor paid the same {Math.round((Number(s.captured) / Math.max(0.01, Number(s.captured) + Number(s.neverCharged))) * 1000) / 10}% of their pledge.
-            {s.direct ? <> Captured straight into the provider&apos;s PayPal account; Earmark never held the money.</> : s.payoutBatchId && <> Captured and paid out in one step: PayPal payout {s.payoutBatchId} ({s.payoutStatus?.toLowerCase()}).</>}
+            Every collected donor paid the same {(() => { const got = c.donations.filter((d) => d.status === "captured"); const p = got.reduce((t, d) => t + Number(d.pledged), 0); return Math.round((got.reduce((t, d) => t + Number(d.captured ?? 0), 0) / Math.max(0.01, p)) * 1000) / 10; })()}% of their pledge.
+            {s.direct ? <> Captured straight into the provider&apos;s PayPal account; Earmark never held the money.</> : s.payoutBatchId && <> Captured and paid out in one step: PayPal payout {s.payoutBatchId}.</>}
+            {" "}A payment shows as confirmed only after PayPal confirms it by signed webhook or API check.
           </p>
+          {unconfirmed && (
+            <button className="btn ghost sm" style={{ marginTop: 10 }} disabled={busy} onClick={async () => { setBusy(true); try { await act({ action: "sync" }); } catch { /* shown */ } finally { setBusy(false); } }}>
+              {busy ? "Checking…" : "Check with PayPal now"}
+            </button>
+          )}
         </div>
-        {best && <Receipt donor={best.donorName} pledged={Number(best.pledged)} paid={Number(best.captured)} hospital={hosp} patient={c.patient.displayName} currency={c.currency} />}
+        {best && <Receipt donor={best.donorName} pledged={Number(best.pledged)} paid={Number(best.captured)} hospital={(s.payees?.length ?? 1) > 1 ? `${hosp} and ${s.payees!.length - 1} pharmacy` : hosp} patient={c.patient.displayName} currency={c.currency} />}
       </div>
     </section>
   );

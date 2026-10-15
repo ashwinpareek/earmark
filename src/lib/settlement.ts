@@ -47,3 +47,14 @@ export function allocate(payableCents: number, holds: Hold[]): { allocations: Al
   const capturedCents = allocations.reduce((s, a) => s + a.captureCents, 0);
   return { allocations, capturedCents, shortfallCents: payableCents - capturedCents };
 }
+
+/** Plan a settlement when some holds can no longer be collected (expired, voided, card
+ *  declined at authorization re-check). Their share is spread across the usable holds —
+ *  still pro-rata, still never above anyone's pledge — and any remaining gap is reported
+ *  as a shortfall instead of failing the settlement. */
+export function planCaptures(payableCents: number, holds: (Hold & { usable: boolean })[]) {
+  const usable = holds.filter((h) => h.usable);
+  const lapsed = holds.filter((h) => !h.usable).map((h) => h.id);
+  const r = allocate(payableCents, usable.map(({ id, pledgedCents }) => ({ id, pledgedCents })));
+  return { ...r, lapsed };
+}

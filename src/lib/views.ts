@@ -21,7 +21,7 @@ export function viewFor(c: Campaign, role: Role) {
     careCosts: c.careCosts.map((k) => ({ ...k, note: scrub(k.note), checks: k.checks.map((x) => ({ ...x, detail: scrub(x.detail) })) })),
     organizerResponse: c.organizerResponse && { ...c.organizerResponse, text: scrub(c.organizerResponse.text) },
     donations: c.donations
-      .filter((d) => d.status !== "pending" && d.status !== "failed")
+      .filter((d) => d.status !== "pending")
       .map((d) => ({ ...d, donorEmail: "", donorName: d.anonymous ? "Anonymous" : d.donorName, orderId: undefined })),
     events: c.events.map((e) => ({ ...e, message: scrub(e.message) })),
   };

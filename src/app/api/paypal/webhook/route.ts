@@ -16,6 +16,7 @@ export async function POST(req: Request) {
   }
   const event = JSON.parse(raw) as { id: string; event_type: string; resource: Record<string, unknown> };
   await recordWebhook({ id: event.id, type: event.event_type, verified });
-  const result = await onWebhook(event).catch((e) => `error: ${(e as Error).message}`);
+  // Only signature-verified events may confirm money movements; anything else is just logged.
+  const result = verified ? await onWebhook(event).catch((e) => `error: ${(e as Error).message}`) : "logged only (unverified: set PAYPAL_WEBHOOK_ID)";
   return NextResponse.json({ ok: true, verified, result });
 }

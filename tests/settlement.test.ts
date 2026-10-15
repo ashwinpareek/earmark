@@ -55,3 +55,27 @@ test("randomised: invariants hold", () => {
     }
   }
 });
+
+import { planCaptures } from "../src/lib/settlement";
+
+test("a lapsed hold's share is spread across the others, nobody exceeds their pledge", () => {
+  const r = planCaptures(229500, [
+    { id: "a", pledgedCents: 100000, usable: true },
+    { id: "b", pledgedCents: 150000, usable: true },
+    { id: "tom", pledgedCents: 10000, usable: false },
+  ]);
+  assert.deepEqual(r.lapsed, ["tom"]);
+  assert.equal(r.capturedCents, 229500);
+  assert.equal(r.shortfallCents, 0);
+  assert.ok(!r.allocations.some((a) => a.id === "tom"));
+});
+
+test("if too many holds lapse, the gap is reported as a shortfall, not an error", () => {
+  const r = planCaptures(229500, [
+    { id: "a", pledgedCents: 100000, usable: true },
+    { id: "b", pledgedCents: 150000, usable: false },
+  ]);
+  assert.equal(r.capturedCents, 100000);
+  assert.equal(r.shortfallCents, 129500);
+  assert.equal(r.allocations[0].neverChargedCents, 0);
+});

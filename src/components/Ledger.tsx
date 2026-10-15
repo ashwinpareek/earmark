@@ -78,7 +78,7 @@ function buildData(d: LedgerData): AgDataSourcesDefinition {
         data: d.movements,
         fields: fields([
           ["id", "Movement ID", "textFormat", true], ["campaignId", "Campaign ID", "textFormat", true], ["type", "Movement", "textFormat"], ["amount", "Amount", "currencyFormat"],
-          ["status", "PayPal status", "textFormat"], ["paypalId", "PayPal ID", "textFormat"], ["note", "Why", "textFormat"], ["date", "Date", "dateFormat"],
+          ["status", "PayPal status", "textFormat"], ["confirmed", "Confirmed by", "textFormat"], ["paypalId", "PayPal ID", "textFormat"], ["note", "Why", "textFormat"], ["date", "Date", "dateFormat"],
         ]),
       },
       {
@@ -129,7 +129,7 @@ const money: AgPageState = {
     },
     ledger: {
       type: "grid",
-      dataMapping: { cols: [{ id: "movements.date" }, { id: "campaigns.patient" }, { id: "movements.type" }, sum("movements.amount"), { id: "movements.status" }, { id: "movements.paypalId" }, { id: "movements.note" }] },
+      dataMapping: { cols: [{ id: "movements.date" }, { id: "campaigns.patient" }, { id: "movements.type" }, sum("movements.amount"), { id: "movements.status" }, { id: "movements.confirmed" }, { id: "movements.paypalId" }, { id: "movements.note" }] },
       sort: [{ field: { id: "movements.date" }, direction: "desc" }],
       format: title("PayPal money movements"),
     },

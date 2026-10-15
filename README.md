@@ -103,6 +103,27 @@ Earmark supports two PayPal setups, chosen with `PAYEE_MODE`.
 - `PayPal-Request-Id` idempotency on every write.
 - Everything runs in the sandbox. A **mock mode** runs the app with no keys.
 
+### Built to survive real-world failures
+
+- **A pledge can't be collected?** Before collecting, Earmark re-checks every hold with PayPal (`GET /v2/payments/authorizations/{id}`).
+  - An expired, voided or declined hold is marked *not collected*, and that donor isn't charged.
+  - Its share is spread across the other pledges. Nobody ever pays more than they pledged.
+  - Any remaining gap is shown as a **shortfall**, and the hospital is paid first. Settlement never crashes.
+- **"Paid" means PayPal said so.** Each money movement starts as *requested*. It becomes *confirmed* only when a **signature-verified webhook** arrives:
+  - `PAYMENT.CAPTURE.COMPLETED`
+  - `PAYMENT.AUTHORIZATION.*`
+  - `PAYMENT.PAYOUTS-ITEM.*`, matched per item by `sender_item_id`
+
+  For local runs with no public URL, **Check with PayPal now** reads each movement back from the API instead. Unverified webhooks are logged but can't confirm anything.
+- **The AI is down or out of quota?** AI calls time out after 45s. The bundled sample documents fall back to their answer key, bill lines fall back to keyword rules, and Q&A answers from verified facts. Only brand-new uploads need the AI.
+
+### Hosted demo for judges
+
+- **Private demo spaces:** every visitor gets their own (a cookie). Demo campaigns, reuse detection, lists and the radar are scoped to it, so judges never see each other's runs or a finished campaign. **Reset my demo** (home page and radar) starts over.
+- **Keep it awake:** Render's free plan sleeps after 15 idle minutes, and the cold start takes about a minute. For judging week, either:
+  - switch `render.yaml` to `plan: starter`, or
+  - set the repository variable `APP_URL` so `.github/workflows/keepalive.yml` pings `/api/status` every 10 minutes.
+
 ### Honest limits
 
 - **Hold window:** PayPal holds an authorization for up to **29 days**, with a 3-day honor period. That fits urgent treatment. Longer treatments would settle bill by bill, renew holds by reauthorizing, or use PayPal's delayed disbursement.
@@ -153,12 +174,13 @@ npm run dev               # http://localhost:3000
 npm test
 ```
 
-There are 20 tests:
+There are 25 tests:
 - **Settlement maths:** exact totals, fair shares, rounding, and 300 randomised invariant cases.
 - **The rules on the real sample documents:** genuine passes; doctored is held for exactly the right reasons; the copycat is caught and linked to the original.
 - **Care receipts:** balloon excluded, unverified shop held.
 - **Bill reconciliation.**
-- **The AI code paths, with a stubbed model.**
+- **The AI code paths, with a stubbed model**, including quota-exhausted fallbacks.
+- **Lapsed holds** re-spread across the other pledges, and shortfalls reported.
 
 ## Project map
 

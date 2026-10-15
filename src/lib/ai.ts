@@ -33,6 +33,8 @@ export function aiModelName(): string {
 
 export class AIError extends Error {}
 
+const TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS ?? 45_000);
+
 const JSON_ONLY = "\n\nRespond with a single JSON object only. No markdown fences, no prose.";
 
 export async function llmJson<T>(
@@ -55,6 +57,7 @@ export async function llmJson<T>(
     content.push({ type: "text", text: user });
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
       headers: { "x-api-key": process.env.ANTHROPIC_API_KEY!, "anthropic-version": "2023-06-01", "content-type": "application/json" },
       body: JSON.stringify({ model, max_tokens: maxTokens, system: system + JSON_ONLY, messages: [{ role: "user", content }] }),
     });
@@ -72,6 +75,7 @@ export async function llmJson<T>(
     }
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
       headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, "content-type": "application/json" },
       body: JSON.stringify({
         model,
@@ -93,6 +97,7 @@ export async function llmJson<T>(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
       {
         method: "POST",
+        signal: AbortSignal.timeout(TIMEOUT_MS),
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: system }] },

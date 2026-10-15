@@ -111,7 +111,8 @@ export interface Donation {
   anonymous: boolean;
   message: string;
   pledged: string; // decimal string
-  status: "pending" | "held" | "captured" | "voided" | "failed";
+  status: "pending" | "held" | "captured" | "voided" | "lapsed" | "failed";
+  problem?: string; // why a hold couldn't be collected
   orderId?: string;
   authorizationId?: string;
   authorizationExpiresAt?: string;
@@ -161,6 +162,10 @@ export interface MoneyMovement {
   id: string;
   type: "hold" | "capture" | "void" | "payout";
   payee?: string;
+  ref?: string; // payout sender_item_id, to match PayPal's per-item webhooks
+  /** Set only when PayPal itself confirms the movement — by signed webhook or by reading it
+   *  back from the PayPal API. Until then the ledger shows it as "requested". */
+  confirmed?: { at: string; via: "webhook" | "api" | "mock"; status?: string };
   amount: string;
   currency: string;
   paypalId: string;
@@ -180,6 +185,9 @@ export interface TimelineEvent {
 
 export interface Campaign {
   id: string;
+  /** "main" for real campaigns; "demo_xxx" for a judge's private demo space. Reuse detection,
+   *  lists and the radar are scoped to a space, so judges never see each other's demo runs. */
+  space?: string;
   createdAt: string;
   status: CampaignStatus;
   currency: string;
@@ -204,6 +212,8 @@ export interface Campaign {
     payoutBatchId?: string;
     payoutStatus?: string;
     payees?: { name: string; amount: string }[];
+    lapsed?: number; // holds that could no longer be collected
+    shortfall?: string; // payable amount that pledges couldn't cover
     direct?: boolean; // captured straight into the provider's account (no payout step)
     at: string;
   };

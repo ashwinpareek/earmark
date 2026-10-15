@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import ResetDemo from "./ResetDemo";
 
 type Item = {
   document: { kind: string; number: string; issuer: string };
@@ -19,9 +20,10 @@ const when = (iso: string) => new Date(iso).toLocaleString([], { dateStyle: "med
 // stay open on a second screen during the demo.
 export default function Radar() {
   const [items, setItems] = useState<Item[] | null>(null);
+  const [space, setSpace] = useState<"main" | "demo">("main");
   useEffect(() => {
     let alive = true;
-    const load = () => fetch("/api/radar", { cache: "no-store" }).then((r) => r.json()).then((j) => alive && setItems(j));
+    const load = () => fetch("/api/radar", { cache: "no-store" }).then((r) => r.json()).then((j) => { if (alive) { setItems(j.items); setSpace(j.space); } });
     load();
     const t = setInterval(load, 4000);
     return () => { alive = false; clearInterval(t); };
@@ -36,7 +38,10 @@ export default function Radar() {
             Every hospital document Earmark has ever read is fingerprinted. When the same file, or the same document number, turns up in another campaign, it appears here and that campaign is held.
           </p>
         </div>
-        <span className="pill held"><span className="dot" style={{ background: "var(--held)" }} /> Live</span>
+        <div className="row">
+          <span className="pill held"><span className="dot" style={{ background: "var(--held)" }} /> Live{space === "demo" ? " · your demo" : ""}</span>
+          {space === "demo" && <ResetDemo />}
+        </div>
       </div>
       {!items ? (
         <span className="thinking"><span className="spinner" /> Loading</span>

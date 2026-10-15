@@ -20,7 +20,26 @@ Output JSON: {"lines":[{"index":number,"covered":boolean,"reason":string}]}`;
 
 const NOT_MEDICAL = /(parking|gift|balloon|toy|candy|snack|greeting card|magazine|shop|tv|television|telephone|phone rental|wi-?fi|cafeteria|guest|visitor|family meal|companion|laundry|newspaper|donation|late fee|souvenir|valet|flowers?)/i;
 
+function keywordClassify(lines: LineItem[], model: string) {
+  return {
+    model,
+    lines: lines.map((l, i) => {
+      const bad = NOT_MEDICAL.test(l.description);
+      return { index: i, covered: !bad, reason: bad ? "Not medical care for the patient." : "Part of the treatment." };
+    }),
+  };
+}
+
 export async function classifyBillLines(procedure: string, diagnosis: string, lines: LineItem[]) {
+  if (aiProvider() === "offline") return keywordClassify(lines, "offline (keyword rules)");
+  try {
+    return await classifyWithModel(procedure, diagnosis, lines);
+  } catch (e) {
+    return keywordClassify(lines, `keyword rules (AI unavailable: ${(e as Error).message.slice(0, 50)})`);
+  }
+}
+
+async function classifyWithModel(procedure: string, diagnosis: string, lines: LineItem[]) {
   if (aiProvider() === "offline") {
     return {
       model: "offline (keyword rules)",
@@ -77,6 +96,19 @@ export function publicContext(c: Campaign, providerName: string) {
 }
 
 export async function answerQuestion(c: Campaign, providerName: string, question: string): Promise<QA> {
+  try {
+    return await answerWithModel(c, providerName, question);
+  } catch {
+    const ctx = publicContext(c, providerName);
+    return {
+      answer: `The assistant is busy right now. Here's what Earmark has verified: ${ctx.facts.slice(0, 2).map((f) => f.text).join(" ")} ${ctx.howEarmarkWorks.split(". ")[0]}.`,
+      basedOn: ctx.facts.slice(0, 2).map((f) => f.id),
+      model: "verified facts (AI unavailable)",
+    };
+  }
+}
+
+async function answerWithModel(c: Campaign, providerName: string, question: string): Promise<QA> {
   const ctx = publicContext(c, providerName);
   if (aiProvider() === "offline") {
     return {

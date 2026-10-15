@@ -50,3 +50,30 @@ test("Q&A: the question is fenced as untrusted input", async () => {
   assert.equal(r.answer, "It goes to the hospital.");
   assert.match(body.contents[0].parts[0].text, /DONOR QUESTION \(untrusted\)/);
 });
+
+import samples from "../src/lib/sample-extractions.json";
+
+function stubGeminiDown(status = 429) {
+  process.env.GEMINI_API_KEY = "test";
+  globalThis.fetch = (async () => new Response(JSON.stringify({ error: { message: "quota exceeded" } }), { status })) as typeof fetch;
+}
+
+test("quota exhausted: bundled sample documents still read from the answer key", async () => {
+  stubGeminiDown();
+  const [sha] = Object.entries(samples as Record<string, { file: string }>).find(([, v]) => v.file === "maya-estimate.png")!;
+  const { extraction, model } = await readDocument({ ...doc, sha256: sha }, Buffer.from([1]));
+  assert.equal(extraction.total, 2400);
+  assert.match(model, /sample answer key \(AI unavailable/);
+});
+
+test("quota exhausted: a real upload fails loudly instead of guessing", async () => {
+  stubGeminiDown();
+  await assert.rejects(() => readDocument(doc, Buffer.from([1])));
+});
+
+test("quota exhausted: bill lines fall back to keyword rules", async () => {
+  stubGeminiDown(503);
+  const r = await classifyBillLines("Appendectomy", "", [{ description: "Surgeon fee", quantity: 1, amount: 980 }, { description: "Family parking pass", quantity: 1, amount: 45 }]);
+  assert.match(r.model, /keyword rules/);
+  assert.deepEqual(r.lines.map((l) => l.covered), [true, false]);
+});

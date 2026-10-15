@@ -3,14 +3,16 @@ import path from "node:path";
 import { z } from "zod";
 import { handle } from "@/lib/http";
 import { createCampaign, listCampaigns } from "@/lib/workflow";
+import { ensureDemoSpace } from "@/lib/space";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 const file = async (name: string) => Buffer.from(await fs.readFile(path.join(process.cwd(), "public", "samples", name)));
 
-async function honest() {
+async function honest(space: string) {
   return createCampaign({
+    space,
     organizer: { name: "Elena Rodriguez", email: "elena.rodriguez@example.com", relationship: "Mother" },
     providerId: "prov_riverside",
     title: "Help Maya recover from emergency surgery",
@@ -24,10 +26,11 @@ async function honest() {
   });
 }
 
-async function fraud() {
+async function fraud(space: string) {
   // The doctored estimate re-uses Maya's estimate number, so make sure that campaign exists.
-  if (!(await listCampaigns()).some((c) => c.docs.some((d) => d.filename === "maya-estimate.png"))) await honest();
+  if (!(await listCampaigns([space])).some((c) => c.docs.some((d) => d.filename === "maya-estimate.png"))) await honest(space);
   return createCampaign({
+    space,
     organizer: { name: "J. Martin", email: "help.leo.fund@example.net", relationship: "Uncle" },
     providerId: "prov_riverside",
     title: "URGENT: Leo needs spinal surgery NOW",
@@ -40,9 +43,10 @@ async function fraud() {
 }
 
 // A stranger copies a real family's campaign: same documents, different organizer.
-async function copycat() {
-  if (!(await listCampaigns()).some((c) => c.docs.some((d) => d.filename === "maya-estimate.png"))) await honest();
+async function copycat(space: string) {
+  if (!(await listCampaigns([space])).some((c) => c.docs.some((d) => d.filename === "maya-estimate.png"))) await honest(space);
   return createCampaign({
+    space,
     organizer: { name: "M. Kahn", email: "maya.rodriguez.help@example.org", relationship: "Friend" },
     providerId: "prov_riverside",
     title: "Please help little Maya pay for her surgery",
@@ -57,6 +61,13 @@ async function copycat() {
 export async function POST(req: Request) {
   return handle(async () => {
     const { scenario } = z.object({ scenario: z.enum(["honest", "fraud", "copycat"]) }).parse(await req.json());
-    return scenario === "honest" ? honest() : scenario === "fraud" ? fraud() : copycat();
+    // Every visitor gets a private demo space, so judges never collide with each other.
+    const space = await ensureDemoSpace();
+    if (scenario === "honest") {
+      // One genuine Maya per space: reopen it instead of making a "copy" that would be flagged.
+      const existing = (await listCampaigns([space])).find((c) => c.docs.some((d) => d.filename === "maya-estimate.png"));
+      return existing ?? honest(space);
+    }
+    return scenario === "fraud" ? fraud(space) : copycat(space);
   });
 }
