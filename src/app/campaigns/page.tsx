@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Campaigns — Earmark" };
 
 export default async function Campaigns() {
-  const cs = (await listCampaigns()).filter((c) => !["rejected", "verifying"].includes(c.status));
+  const cs = (await listCampaigns()).filter((c) => !["rejected", "verifying", "needs_review"].includes(c.status));
   return (
     <div className="wrap">
       <div className="page-head">

@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function DemoButton({ scenario, label, className = "btn" }: { scenario: "honest" | "fraud"; label: string; className?: string }) {
+export default function DemoButton({ scenario, label, className = "btn" }: { scenario: "honest" | "fraud" | "copycat"; label: string; className?: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -17,7 +17,7 @@ export default function DemoButton({ scenario, label, className = "btn" }: { sce
           const r = await fetch("/api/demo", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scenario }) });
           const j = await r.json();
           if (!r.ok) { setErr(j.error); setBusy(false); return; }
-          router.push(`/c/${j.id}?role=${scenario === "fraud" ? "donor" : "donor"}`);
+          router.push(`/c/${j.id}?role=donor`);
         }}
       >
         {busy ? "Reading documents…" : label}

@@ -4,7 +4,7 @@ import { provider } from "@/lib/providers";
 
 const money = (v: number | string, c = "USD") => new Intl.NumberFormat("en-US", { style: "currency", currency: c }).format(Number(v));
 const LABEL: Record<string, [string, string]> = {
-  verifying: ["Checking", "held"], needs_review: ["Needs review", "warn"], rejected: ["Rejected", "fail"], live: ["Accepting pledges", "paid"],
+  verifying: ["Checking", "held"], needs_review: ["On hold for review", "warn"], rejected: ["Rejected by a reviewer", "fail"], live: ["Accepting pledges", "paid"],
   bill_review: ["Checking bill", "held"], bill_needs_review: ["Bill needs review", "warn"], settling: ["Paying", "held"], settled: ["Bill paid", "paid"], cancelled: ["Cancelled", ""],
 };
 

@@ -244,6 +244,45 @@ record(p, base(docType="invoice", providerName=RIVERSIDE["name"], providerAddres
                lineItems=[dict(description=r[0], quantity=r[1], amount=r[2]) for r in maya_bill_rows],
                subtotal=2340.00, insuranceCovered=9390.00, total=2340.00))
 
+# Pharmacy receipt (a care cost, uploaded by the family)
+CITYCARE = dict(name="CityCare Pharmacy", address="455 Congress Avenue, Austin, TX 78701", phone="+1 (512) 555-0187", reg="TX-PHR-31876")
+rx_rows = [
+    ("Amoxicillin oral suspension 250 mg/5 ml, 100 ml", 1, 18.40),
+    ("Children's ibuprofen 100 mg/5 ml, 120 ml", 1, 9.60),
+    ("Sterile wound dressing kit", 1, 22.50),
+    ("Digital thermometer", 1, 14.00),
+    ("Get-well balloon", 1, 6.00),
+]
+img = Image.new("RGB", (900, 1000), (253, 253, 251))
+d = ImageDraw.Draw(img)
+d.text((450, 70), "CityCare Pharmacy", font=BOLD(40), fill=(150, 30, 60), anchor="mm")
+d.text((450, 118), CITYCARE["address"], font=REG(19), fill=MUTED, anchor="mm")
+d.text((450, 146), f"Tel {CITYCARE['phone']}  ·  Licence {CITYCARE['reg']}", font=REG(19), fill=MUTED, anchor="mm")
+d.line((60, 185, 840, 185), fill=RULE, width=2)
+d.text((60, 210), "Receipt  RX-77310", font=MED(22), fill=INK)
+d.text((840, 210), "5 Oct 2026  16:42", font=REG(22), fill=INK, anchor="ra")
+d.text((60, 250), "Patient: Maya Rodriguez   ·   Rx by Dr. P. Natarajan", font=REG(20), fill=MUTED)
+y = 310
+mono = ImageFont.truetype(MONO, 21)
+for desc, qty, amt in rx_rows:
+    d.text((60, y), desc, font=REG(21), fill=INK)
+    s_ = money(amt)
+    d.text((840, y), s_, font=mono, fill=INK, anchor="ra")
+    y += 46
+d.line((60, y + 4, 840, y + 4), fill=RULE, width=2)
+y += 26
+d.text((60, y), "TOTAL", font=BOLD(26), fill=INK)
+d.text((840, y), money(sum(r[2] for r in rx_rows)), font=ImageFont.truetype(MONO, 26), fill=INK, anchor="ra")
+y += 54
+d.text((60, y), "Paid: card ending 4417", font=REG(19), fill=MUTED)
+d.text((450, y + 90), "Thank you — get well soon!", font=MED(21), fill=(150, 30, 60), anchor="mm")
+img2 = img.filter(ImageFilter.GaussianBlur(0.3))
+path = os.path.join(OUT, "maya-pharmacy-receipt.png")
+img2.save(path, optimize=True)
+record(path, base(docType="receipt", providerName=CITYCARE["name"], providerAddress=CITYCARE["address"], providerPhone=CITYCARE["phone"],
+                  providerRegistrationNo=CITYCARE["reg"], patientName="Maya Rodriguez", documentNumber="RX-77310", documentDate="2026-10-05",
+                  lineItems=[dict(description=r[0], quantity=r[1], amount=r[2]) for r in rx_rows], total=round(sum(r[2] for r in rx_rows), 2)))
+
 # ─────────────────────────── Leo: doctored campaign ──────────────────────────
 # Tells, on purpose:
 #  - line items add up to $3,150 but the printed total says $9,850 (and is in a different font)

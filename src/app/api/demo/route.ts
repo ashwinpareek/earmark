@@ -39,9 +39,24 @@ async function fraud() {
   });
 }
 
+// A stranger copies a real family's campaign: same documents, different organizer.
+async function copycat() {
+  if (!(await listCampaigns()).some((c) => c.docs.some((d) => d.filename === "maya-estimate.png"))) await honest();
+  return createCampaign({
+    organizer: { name: "M. Kahn", email: "maya.rodriguez.help@example.org", relationship: "Friend" },
+    providerId: "prov_riverside",
+    title: "Please help little Maya pay for her surgery",
+    story: "I'm raising money for Maya's surgery on behalf of her family. Every dollar helps!",
+    files: [
+      { kind: "estimate", filename: "estimate.png", buf: await file("maya-estimate.png") },
+      { kind: "identity", filename: "id.png", buf: await file("maya-registration.png") },
+    ],
+  });
+}
+
 export async function POST(req: Request) {
   return handle(async () => {
-    const { scenario } = z.object({ scenario: z.enum(["honest", "fraud"]) }).parse(await req.json());
-    return scenario === "honest" ? honest() : fraud();
+    const { scenario } = z.object({ scenario: z.enum(["honest", "fraud", "copycat"]) }).parse(await req.json());
+    return scenario === "honest" ? honest() : scenario === "fraud" ? fraud() : copycat();
   });
 }

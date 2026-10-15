@@ -17,6 +17,10 @@ services:
         sync: false
       - key: PROVIDER_PAYPAL_EMAIL
         sync: false
+      - key: PHARMACY_PAYPAL_EMAIL
+        sync: false
+      - key: PAYEE_MODE
+        value: payout
       - key: GEMINI_API_KEY
         sync: false
       - key: ANTHROPIC_API_KEY

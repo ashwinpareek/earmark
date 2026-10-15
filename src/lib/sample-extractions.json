@@ -174,6 +174,59 @@
       "readerConfidence": 0.95
     }
   },
+  "287ffeb98d511c91ade581f8dea8a4f2f474a47289bd6260759aee79fa92e416": {
+    "file": "maya-pharmacy-receipt.png",
+    "extraction": {
+      "docType": "receipt",
+      "providerName": "CityCare Pharmacy",
+      "providerAddress": "455 Congress Avenue, Austin, TX 78701",
+      "providerPhone": "+1 (512) 555-0187",
+      "providerRegistrationNo": "TX-PHR-31876",
+      "patientName": "Maya Rodriguez",
+      "patientAge": null,
+      "patientDob": "",
+      "documentNumber": "RX-77310",
+      "documentDate": "2026-10-05",
+      "procedure": "",
+      "diagnosis": "",
+      "currency": "USD",
+      "lineItems": [
+        {
+          "description": "Amoxicillin oral suspension 250 mg/5 ml, 100 ml",
+          "quantity": 1,
+          "amount": 18.4
+        },
+        {
+          "description": "Children's ibuprofen 100 mg/5 ml, 120 ml",
+          "quantity": 1,
+          "amount": 9.6
+        },
+        {
+          "description": "Sterile wound dressing kit",
+          "quantity": 1,
+          "amount": 22.5
+        },
+        {
+          "description": "Digital thermometer",
+          "quantity": 1,
+          "amount": 14.0
+        },
+        {
+          "description": "Get-well balloon",
+          "quantity": 1,
+          "amount": 6.0
+        }
+      ],
+      "subtotal": null,
+      "tax": null,
+      "discount": null,
+      "insuranceCovered": null,
+      "total": 70.5,
+      "tamperSignals": [],
+      "instructionsToReader": "",
+      "readerConfidence": 0.95
+    }
+  },
   "6ee9e98746dafb6f53e9d1c8db6e3eacc496a6e0de35091b65a92321a83facc5": {
     "file": "leo-estimate.png",
     "extraction": {

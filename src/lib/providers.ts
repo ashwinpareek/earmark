@@ -1,6 +1,7 @@
 import type { Provider } from "./types";
 
-// The verified provider registry. In production this is built by the platform from
+// The verified provider registry: hospitals and clinics (campaign payees) plus pharmacies
+// and medical-supply stores (payees for capped care-cost receipts). In production this is built by the platform from
 // licensing databases and a one-time onboarding call with each hospital's billing office;
 // here it is a fixed list of fictional hospitals.
 //
@@ -14,6 +15,7 @@ export function providers(): Provider[] {
   return [
     {
       id: "prov_riverside",
+      type: "hospital",
       name: "Riverside Children's Hospital",
       city: "Austin",
       country: "US",
@@ -25,6 +27,7 @@ export function providers(): Provider[] {
     },
     {
       id: "prov_lakeview",
+      type: "hospital",
       name: "Lakeview General Hospital",
       city: "Madison",
       country: "US",
@@ -36,6 +39,7 @@ export function providers(): Provider[] {
     },
     {
       id: "prov_harborpoint",
+      type: "clinic",
       name: "Harbor Point Cancer Centre",
       city: "Toronto",
       country: "CA",
@@ -45,11 +49,43 @@ export function providers(): Provider[] {
       paypalEmail: process.env.PROVIDER3_PAYPAL_EMAIL || "patientaccounts@harborpoint.example.com",
       verifiedSince: "2025-09-20",
     },
+    {
+      id: "prov_citycare",
+      type: "pharmacy",
+      name: "CityCare Pharmacy",
+      city: "Austin",
+      country: "US",
+      registrationNo: "TX-PHR-31876",
+      phone: "+1 (512) 555-0187",
+      address: "455 Congress Avenue, Austin, TX 78701",
+      paypalEmail: process.env.PHARMACY_PAYPAL_EMAIL || process.env.PROVIDER_PAYPAL_EMAIL || "payments@citycare-pharmacy.example.com",
+      verifiedSince: "2025-11-04",
+    },
+    {
+      id: "prov_mobility",
+      type: "medical_supplies",
+      name: "Mobility Plus Medical Supply",
+      city: "Madison",
+      country: "US",
+      registrationNo: "WI-DME-20419",
+      phone: "+1 (608) 555-0133",
+      address: "17 Willow Street, Madison, WI 53704",
+      paypalEmail: process.env.SUPPLIES_PAYPAL_EMAIL || "orders@mobilityplus.example.com",
+      verifiedSince: "2026-01-15",
+    },
   ];
 }
 
 export function provider(id: string): Provider | undefined {
   return providers().find((p) => p.id === id);
+}
+
+export const isCampaignPayee = (p: Provider) => p.type === "hospital" || p.type === "clinic";
+export const TYPE_LABEL: Record<Provider["type"], string> = { hospital: "Hospital", clinic: "Clinic", pharmacy: "Pharmacy", medical_supplies: "Medical supplies" };
+
+/** Find a verified provider by the name printed on a document. */
+export function findByName(name: string, types?: Provider["type"][]): Provider | undefined {
+  return providers().find((p) => (!types || types.includes(p.type)) && sameProviderName(name, p.name));
 }
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");

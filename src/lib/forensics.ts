@@ -11,6 +11,7 @@ export interface PriorDoc {
   sha256: string;
   fingerprint: string; // provider|documentNumber
   patientKey: string;
+  campaignLabel: string; // e.g. "Help Maya recover… (Maya R.)"
 }
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -115,25 +116,30 @@ export function duplicateChecks(docs: Doc[], campaignId: string, prior: PriorDoc
   const others = prior.filter((p) => p.campaignId !== campaignId);
   const hits: string[] = [];
   const ids: string[] = [];
+  const refs = new Map<string, string>();
   for (const d of docs) {
     const e = d.extraction;
-    const sameFile = others.find((p) => p.sha256 === d.sha256);
-    if (sameFile) {
-      hits.push(`the ${labelOf(d)} is the exact same file as one uploaded to another campaign`);
-      ids.push(d.id);
-      continue;
+    const sameFile = others.filter((p) => p.sha256 === d.sha256);
+    const fp = e ? fingerprintOf(e) : "";
+    const reused = fp ? others.filter((p) => p.fingerprint === fp && p.sha256 !== d.sha256) : [];
+    const camps = new Set([...sameFile, ...reused].map((p) => p.campaignId));
+    if (!camps.size) continue;
+    ids.push(d.id);
+    [...sameFile, ...reused].forEach((p) => refs.set(p.campaignId, p.campaignLabel));
+    const fileCamps = new Set(sameFile.map((p) => p.campaignId));
+    const numCamps = new Set(reused.map((p) => p.campaignId).filter((x) => !fileCamps.has(x)));
+    const plural = (n: number) => `${n} other campaign${n > 1 ? "s" : ""}`;
+    const parts: string[] = [];
+    if (fileCamps.size) parts.push(`the ${labelOf(d)} is an exact copy of a file in ${plural(fileCamps.size)}`);
+    if (numCamps.size) {
+      const otherPatient = reused.some((p) => numCamps.has(p.campaignId) && p.patientKey !== patientKey(e!.patientName));
+      parts.push(`${fileCamps.size ? "its number " : ""}${e!.documentNumber} ${fileCamps.size ? "also appears" : "already appears"} in ${plural(numCamps.size)}${otherPatient ? " for a different patient" : ""}`);
     }
-    if (!e) continue;
-    const fp = fingerprintOf(e);
-    const reused = fp && others.find((p) => p.fingerprint === fp && p.patientKey !== patientKey(e.patientName));
-    if (reused) {
-      hits.push(`${e.documentNumber} was already issued to a different patient in another campaign`);
-      ids.push(d.id);
-    }
+    hits.push(parts.join(", and "));
   }
   return [
     hits.length
-      ? { id: "duplicate", label: "Documents not reused", status: "fail", detail: `Reused document: ${hits.join("; ")}.`, docIds: ids, source: "rule" }
+      ? { id: "duplicate", label: "Documents not reused", status: "fail", detail: `Reused document: ${hits.join("; ")}.`, docIds: ids, source: "rule", refs: [...refs].map(([campaignId, label]) => ({ campaignId, label })) }
       : { id: "duplicate", label: "Documents not reused", status: "pass", detail: "None of these documents or document numbers appear in any other campaign.", docIds: [], source: "rule" },
   ];
 }
@@ -198,29 +204,33 @@ export function verifyCampaign(args: { campaignId: string; docs: Doc[]; provider
   if (e.readerConfidence < 0.6) {
     checks.push({ id: "legibility", label: "Documents are legible", status: "warn", detail: `The estimate was hard to read (confidence ${Math.round(e.readerConfidence * 100)}%). Upload a clearer photo or the PDF.`, docIds: [est.id], source: "ai" });
   }
+  // The goal is the amount the documents actually support: the printed total if the
+  // arithmetic holds, otherwise only what the itemised lines add up to.
   const arithmeticOk = checks.find((c) => c.id === "arithmetic")?.status === "pass";
-  return decide(checks, arithmeticOk && e.total ? e.total : 0);
+  const lineSum = Math.round(e.lineItems.reduce((t, l) => t + (l.amount || 0), 0) * 100) / 100;
+  return decide(checks, arithmeticOk && e.total ? e.total : lineSum);
 }
 
-const HARD = new Set(["duplicate", "injection", "provider_match"]);
+const HIGH_RISK = new Set(["duplicate", "injection", "provider_match", "identity"]);
 
+/** Rules never reject on their own. A failed check HOLDS the campaign for a person to review,
+ *  with the evidence; the family can respond; only a human reviewer can reject. Real patients
+ *  are never turned away by a model or a regex. */
 export function decide(checks: Check[], goal: number): VerificationReport {
   const fails = checks.filter((c) => c.status === "fail");
   const warns = checks.filter((c) => c.status === "warn");
-  let decision: VerificationReport["decision"];
-  if (fails.length >= 2 || fails.some((f) => HARD.has(f.id))) decision = "rejected";
-  else if (fails.length === 1 || warns.length >= 3) decision = "needs_review";
-  else decision = "verified";
+  const decision: VerificationReport["decision"] = fails.length || warns.length >= 3 ? "needs_review" : "verified";
+  const risk: VerificationReport["risk"] = fails.length >= 2 || fails.some((f) => HIGH_RISK.has(f.id)) ? "high" : fails.length || warns.length >= 2 ? "medium" : "low";
   const summary =
     decision === "verified"
       ? `All ${checks.length} checks passed${warns.length ? ` (${warns.length} minor note${warns.length > 1 ? "s" : ""})` : ""}. The goal is set to the hospital's verified estimate.`
-      : decision === "needs_review"
-        ? `${fails.length ? `1 check failed` : `${warns.length} checks need attention`}. A reviewer will look before the campaign goes live.`
-        : `${fails.length} checks failed. This campaign can't go live, and no donor can be charged for it.`;
-  return { decision, verifiedGoal: decision === "rejected" ? 0 : goal, checks, summary, at: new Date().toISOString() };
+      : fails.length
+        ? `${fails.length} check${fails.length > 1 ? "s" : ""} failed. Nobody can donate until a person reviews the evidence, and the family can respond.`
+        : `${warns.length} checks need attention. A person will review the campaign before it goes live.`;
+  return { decision, risk, verifiedGoal: goal, checks, summary, at: new Date().toISOString() };
 }
 
 function labelOf(d: Doc) {
-  return { estimate: "estimate", identity: "registration card", medical_note: "clinical note", final_bill: "final bill" }[d.kind];
+  return { estimate: "estimate", identity: "registration card", medical_note: "clinical note", final_bill: "final bill", receipt: "receipt" }[d.kind];
 }
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);

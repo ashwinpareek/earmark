@@ -8,8 +8,11 @@
 
 export type Role = "donor" | "organizer" | "hospital" | "reviewer";
 
+export type ProviderType = "hospital" | "clinic" | "pharmacy" | "medical_supplies";
+
 export interface Provider {
   id: string;
+  type: ProviderType;
   name: string;
   city: string;
   country: string;
@@ -20,7 +23,7 @@ export interface Provider {
   verifiedSince: string;
 }
 
-export type DocKind = "estimate" | "identity" | "medical_note" | "final_bill";
+export type DocKind = "estimate" | "identity" | "medical_note" | "final_bill" | "receipt";
 
 export interface LineItem {
   description: string;
@@ -30,7 +33,7 @@ export interface LineItem {
 
 /** What the Document Reader extracted from a document. Every field is as printed, unverified. */
 export interface Extraction {
-  docType: "estimate" | "invoice" | "identity" | "medical_note" | "other";
+  docType: "estimate" | "invoice" | "receipt" | "identity" | "medical_note" | "other";
   providerName: string;
   providerAddress: string;
   providerPhone: string;
@@ -76,11 +79,15 @@ export interface Check {
   detail: string; // concrete evidence
   docIds: string[];
   source: "rule" | "ai"; // deterministic rule or AI judgement
+  refs?: { campaignId: string; label: string }[]; // other campaigns involved (reuse radar)
 }
 
 export interface VerificationReport {
+  // Rules never reject on their own: anything that fails is HELD for a person to review,
+  // with the evidence, and the family can respond. Only a human reviewer rejects.
   decision: "verified" | "needs_review" | "rejected";
-  verifiedGoal: number; // amount supported by the documents
+  risk: "low" | "medium" | "high";
+  verifiedGoal: number; // amount the documents actually support
   checks: Check[];
   summary: string;
   at: string;
@@ -134,9 +141,26 @@ export interface BillReview {
   at: string;
 }
 
+/** A capped allowance for verified out-of-hospital care costs (medicines, supplies),
+ *  paid directly to the verified issuer of the receipt — never to the family. */
+export interface CareCost {
+  id: string;
+  docId: string;
+  providerId: string | null;
+  issuer: string;
+  claimed: number;
+  eligible: number; // medical lines, capped — what a reviewer can release if the receipt was held
+  approved: number; // what will actually be paid (0 while held)
+  status: "approved" | "held" | "paid";
+  checks: Check[];
+  note: string;
+  at: string;
+}
+
 export interface MoneyMovement {
   id: string;
   type: "hold" | "capture" | "void" | "payout";
+  payee?: string;
   amount: string;
   currency: string;
   paypalId: string;
@@ -170,12 +194,17 @@ export interface Campaign {
   verification?: VerificationReport;
   donations: Donation[];
   billReview?: BillReview;
+  careCosts: CareCost[];
+  organizerResponse?: { text: string; at: string };
+  protectedCopies?: number; // times this campaign's documents were caught being reused elsewhere
   settlement?: {
     payable: string;
     captured: string;
     neverCharged: string;
     payoutBatchId?: string;
     payoutStatus?: string;
+    payees?: { name: string; amount: string }[];
+    direct?: boolean; // captured straight into the provider's account (no payout step)
     at: string;
   };
   movements: MoneyMovement[];

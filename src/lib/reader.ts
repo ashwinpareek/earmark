@@ -13,7 +13,7 @@ const num = z.preprocess((v) => (v === "" || v === null || v === undefined ? nul
 const str = z.preprocess((v) => (v === null || v === undefined ? "" : String(v)), z.string());
 
 const ExtractionSchema = z.object({
-  docType: z.preprocess((v) => (typeof v === "string" ? v.toLowerCase() : v), z.enum(["estimate", "invoice", "identity", "medical_note", "other"]).catch("other")),
+  docType: z.preprocess((v) => (typeof v === "string" ? v.toLowerCase() : v), z.enum(["estimate", "invoice", "receipt", "identity", "medical_note", "other"]).catch("other")),
   providerName: str,
   providerAddress: str,
   providerPhone: str,
@@ -39,12 +39,12 @@ const ExtractionSchema = z.object({
   readerConfidence: num.transform((n) => Math.min(1, Math.max(0, n ?? 0.5))),
 });
 
-const READER_SYSTEM = `You are Earmark's Document Reader. You read hospital and patient documents (estimates, invoices, ID/registration cards, clinical notes) for a medical fundraising platform. Donors' money depends on your accuracy.
+const READER_SYSTEM = `You are Earmark's Document Reader. You read hospital and patient documents (estimates, invoices, pharmacy/supply receipts, ID/registration cards, clinical notes) for a medical fundraising platform. Donors' money depends on your accuracy.
 
 Transcribe what is PRINTED. Never infer, correct or "fix" values: if the printed total doesn't match the line items, report both exactly as printed. Use "" or null for anything absent or unreadable.
 
 Fields:
-- docType: "estimate" | "invoice" | "identity" | "medical_note" | "other"
+- docType: "estimate" | "invoice" | "receipt" | "identity" | "medical_note" | "other"
 - providerName, providerAddress, providerPhone, providerRegistrationNo (licence / registration number as printed)
 - patientName, patientAge (number as printed, or computed from DOB only if no age is printed), patientDob (YYYY-MM-DD)
 - documentNumber (estimate / invoice / MRN number), documentDate (YYYY-MM-DD)
