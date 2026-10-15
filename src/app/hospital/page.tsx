@@ -1,4 +1,5 @@
 import { listCampaigns } from "@/lib/store";
+import { visibleSpaces } from "@/lib/space";
 import { providers } from "@/lib/providers";
 import CampaignList from "@/components/CampaignList";
 
@@ -9,7 +10,7 @@ export default async function Hospital({ searchParams }: { searchParams: Promise
   const { p } = await searchParams;
   const all = providers();
   const me = all.find((x) => x.id === p) ?? all[0];
-  const cs = (await listCampaigns()).filter((c) => c.providerId === me.id && !["rejected", "verifying"].includes(c.status));
+  const cs = (await listCampaigns(await visibleSpaces())).filter((c) => c.providerId === me.id && !["rejected", "verifying"].includes(c.status));
   return (
     <div className="wrap">
       <div className="page-head">

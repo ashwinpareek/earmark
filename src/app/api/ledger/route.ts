@@ -1,4 +1,5 @@
 import { handle } from "@/lib/http";
+import { visibleSpaces } from "@/lib/space";
 import { listCampaigns, listWebhooks } from "@/lib/store";
 import { provider } from "@/lib/providers";
 
@@ -7,7 +8,7 @@ export const dynamic = "force-dynamic";
 // Public transparency data for the AG Studio ledger. No donor emails, no patient full names.
 export async function GET() {
   return handle(async () => {
-    const cs = await listCampaigns();
+    const cs = await listCampaigns(await visibleSpaces());
     const campaigns = cs.map((c) => ({
       id: c.id, title: c.title, patient: c.patient.displayName, hospital: provider(c.providerId)?.name ?? "", status: c.status,
       decision: c.verification?.decision ?? "pending", goal: Number(c.goal), currency: c.currency, createdAt: c.createdAt.slice(0, 10),
@@ -27,6 +28,7 @@ export async function GET() {
     const movements = cs.flatMap((c) => c.movements.map((m) => ({
       id: m.id, campaignId: c.id, type: m.type, amount: Number(m.amount), currency: m.currency, paypalId: m.paypalId, status: m.status,
       donationId: m.donationId ?? "", note: m.note ?? "", date: m.at.slice(0, 10), at: m.at,
+      confirmed: !m.confirmed ? "Awaiting PayPal" : m.confirmed.via === "mock" ? "Mock" : m.confirmed.via === "webhook" ? "PayPal webhook" : "PayPal API",
     })));
     const checks = cs.flatMap((c) => [...(c.verification?.checks ?? []).map((k) => ({ stage: "Campaign" as const, k })), ...(c.billReview?.checks ?? []).map((k) => ({ stage: "Final bill" as const, k }))]
       .map(({ stage, k }, i) => ({ id: `${c.id}-${i}`, campaignId: c.id, stage, check: k.label, status: k.status, source: k.source === "ai" ? "AI" : "Rule" })));

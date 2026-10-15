@@ -3,13 +3,16 @@ import { createCampaign, listCampaigns } from "@/lib/workflow";
 import { HttpError } from "@/lib/store";
 import { provider } from "@/lib/providers";
 import type { DocKind } from "@/lib/types";
+import { isSample } from "@/lib/reader";
+import { sha256 } from "@/lib/files";
+import { ensureDemoSpace, visibleSpaces } from "@/lib/space";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 export async function GET() {
   return handle(async () =>
-    (await listCampaigns()).map((c) => ({
+    (await listCampaigns(await visibleSpaces())).map((c) => ({
       id: c.id, title: c.title, status: c.status, patient: c.patient, goal: c.goal, currency: c.currency, createdAt: c.createdAt,
       provider: provider(c.providerId)?.name ?? "",
       held: c.donations.filter((d) => d.status === "held").reduce((s, d) => s + Number(d.pledged), 0).toFixed(2),
@@ -34,7 +37,10 @@ export async function POST(req: Request) {
         if (v instanceof File && v.size > 0) files.push({ kind, filename: v.name, buf: Buffer.from(await v.arrayBuffer()) });
       }
     }
+    // Uploads of the bundled sample documents go to the visitor's private demo space.
+    const usesSamples = files.some((f) => isSample(sha256(f.buf)));
     return createCampaign({
+      space: usesSamples ? await ensureDemoSpace() : "main",
       organizer: { name, email, relationship: s("relationship") || "Family" },
       providerId: s("providerId"),
       title: s("title"),

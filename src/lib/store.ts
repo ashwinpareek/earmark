@@ -20,6 +20,7 @@ export interface FingerprintEntry {
   docKind: string;
   docNumber: string;
   issuer: string;
+  space?: string;
   at: string;
 }
 
@@ -70,9 +71,12 @@ export async function getCampaign(id: string): Promise<Campaign | undefined> {
   return c ? structuredClone(c) : undefined;
 }
 
-export async function listCampaigns(): Promise<Campaign[]> {
+export const spaceOf = (x: { space?: string }) => x.space ?? "main";
+
+export async function listCampaigns(spaces?: string[]): Promise<Campaign[]> {
   const db = await load();
   return Object.values(db.campaigns)
+    .filter((c) => !spaces || spaces.includes(spaceOf(c)))
     .map((c) => structuredClone(c))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
@@ -87,12 +91,45 @@ export async function updateCampaign<T>(id: string, fn: (c: Campaign) => Promise
   return tx(async (db) => {
     const c = db.campaigns[id];
     if (!c) throw new HttpError(404, "Campaign not found");
-    return fn(c);
+    const r = await fn(c);
+    // In mock mode there is no PayPal to confirm anything; label it honestly as mock.
+    if (process.env.PAYPAL_MODE === "mock" || !process.env.PAYPAL_CLIENT_ID || !process.env.PAYPAL_CLIENT_SECRET) {
+      for (const m of c.movements) m.confirmed ??= { at: new Date().toISOString(), via: "mock" };
+    }
+    return r;
   });
 }
 
-export async function fingerprints(): Promise<FingerprintEntry[]> {
-  return (await load()).fingerprints.slice();
+/** Find the campaign holding a movement that matches, across all campaigns (webhooks don't
+ *  always carry our custom_id, e.g. payout items). */
+export async function confirmMovements(match: (m: Campaign["movements"][number]) => boolean, via: "webhook" | "api", status?: string) {
+  return tx((db) => {
+    let n = 0;
+    for (const c of Object.values(db.campaigns)) {
+      for (const m of c.movements) {
+        if (!match(m)) continue;
+        m.confirmed = { at: new Date().toISOString(), via, status };
+        if (status) m.status = status;
+        n++;
+      }
+    }
+    return n;
+  });
+}
+
+export async function fingerprints(space?: string): Promise<FingerprintEntry[]> {
+  return (await load()).fingerprints.filter((f) => !space || spaceOf(f) === space);
+}
+
+/** Wipe a demo space: its campaigns and fingerprints. Never touches "main". */
+export async function deleteSpace(space: string) {
+  if (!space.startsWith("demo_")) throw new HttpError(400, "Only demo spaces can be reset");
+  return tx((db) => {
+    let n = 0;
+    for (const [id, c] of Object.entries(db.campaigns)) if (spaceOf(c) === space) { delete db.campaigns[id]; n++; }
+    db.fingerprints = db.fingerprints.filter((f) => spaceOf(f) !== space);
+    return n;
+  });
 }
 
 export async function addFingerprints(entries: Omit<FingerprintEntry, "at">[]) {

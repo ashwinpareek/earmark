@@ -69,6 +69,10 @@ The demo has two scams:
   - a **Bill Line Classifier**;
   - a **Campaign Q&A** that answers donors only from verified facts.
 - **The rules decide, not the model.** Forensic checks, bill reconciliation and settlement are deterministic TypeScript. Settlement uses largest-remainder allocation in integer cents, so every donor pays the same fraction, totals are exact, and nobody is ever over-charged. It's property-tested over 300 randomised cases.
+- **Robust by design.**
+  - Every hold is re-checked with PayPal before collection. A lapsed pledge's share is spread across the others, and any gap is shown as a shortfall.
+  - The ledger marks a payment *confirmed* only on a **signature-verified PayPal webhook** or an API read-back.
+  - If the AI quota runs out, the demo keeps working.
 - **AG Studio** powers the public ledger: data sources with relationships, KPIs, a donut, a stacked chart, grids and a pivot.
 - **Next.js 15 + React 19 + TypeScript + Zod**, deployable to **Render** with a blueprint.
 

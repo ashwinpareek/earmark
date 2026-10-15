@@ -1,11 +1,12 @@
 import { listCampaigns } from "@/lib/store";
+import { visibleSpaces } from "@/lib/space";
 import CampaignList from "@/components/CampaignList";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Review queue — Earmark" };
 
 export default async function Review() {
-  const all = await listCampaigns();
+  const all = await listCampaigns(await visibleSpaces());
   const queue = all.filter((c) => c.status === "needs_review" || c.status === "bill_needs_review" || c.careCosts.some((k) => k.status === "held"))
     .sort((a, b) => ({ high: 0, medium: 1, low: 2 }[a.verification?.risk ?? "low"] - { high: 0, medium: 1, low: 2 }[b.verification?.risk ?? "low"]));
   const rejected = all.filter((c) => c.status === "rejected");

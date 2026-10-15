@@ -1,4 +1,4 @@
-import { addEvent, addFingerprints, fingerprints, getCampaign, HttpError, listCampaigns, saveCampaign, tx, updateCampaign } from "./store";
+import { addEvent, addFingerprints, confirmMovements, fingerprints, getCampaign, HttpError, listCampaigns, saveCampaign, spaceOf, tx, updateCampaign } from "./store";
 import type { Campaign, Doc, DocKind, Donation, Extraction } from "./types";
 import { isCampaignPayee, provider as getProvider } from "./providers";
 import { readFile, storeFile } from "./files";
@@ -6,7 +6,7 @@ import { readDocument } from "./reader";
 import { fingerprintOf, patientKey, verifyCampaign, type PriorDoc } from "./forensics";
 import { reviewBill } from "./reconcile";
 import { careRoom, reviewReceipt } from "./care";
-import { allocate } from "./settlement";
+import { planCaptures } from "./settlement";
 import { answerQuestion } from "./agents";
 import * as paypal from "./paypal";
 import { appBaseUrl, fmtMoney, fromCents, nowIso, toCents, uid } from "./util";
@@ -28,15 +28,15 @@ function expect(c: Campaign, ...ok: Campaign["status"][]) {
 
 const labelFor = (c: Pick<Campaign, "title" | "patient">) => `${c.title} (${c.patient.displayName})`;
 
-async function priorDocs(): Promise<PriorDoc[]> {
-  return (await fingerprints()).map((f) => ({ campaignId: f.campaignId, docId: f.docId, sha256: f.sha256, fingerprint: f.fingerprint, patientKey: f.patientKey, campaignLabel: f.campaignLabel }));
+async function priorDocs(space: string): Promise<PriorDoc[]> {
+  return (await fingerprints(space)).map((f) => ({ campaignId: f.campaignId, docId: f.docId, sha256: f.sha256, fingerprint: f.fingerprint, patientKey: f.patientKey, campaignLabel: f.campaignLabel }));
 }
 
 async function remember(c: Campaign, docs: Doc[]) {
   await addFingerprints(
     docs.filter((d) => d.extraction).map((d) => ({
       campaignId: c.id, docId: d.id, sha256: d.sha256, fingerprint: fingerprintOf(d.extraction!), patientKey: patientKey(d.extraction!.patientName),
-      campaignLabel: labelFor(c), docKind: d.kind, docNumber: d.extraction!.documentNumber, issuer: d.extraction!.providerName,
+      campaignLabel: labelFor(c), docKind: d.kind, docNumber: d.extraction!.documentNumber, issuer: d.extraction!.providerName, space: spaceOf(c),
     })),
   );
 }
@@ -90,6 +90,7 @@ export interface NewCampaign {
   title: string;
   story: string;
   currency?: string;
+  space?: string;
   files: { kind: DocKind; filename: string; buf: Buffer }[];
 }
 
@@ -100,6 +101,7 @@ export async function createCampaign(input: NewCampaign): Promise<Campaign> {
   const docs = await Promise.all(input.files.map((f) => ingest(f.kind, f.filename, f.buf, "organizer")));
   const c: Campaign = {
     id: uid("cmp"),
+    space: input.space ?? "main",
     createdAt: nowIso(),
     status: "verifying",
     currency: input.currency ?? "USD",
@@ -135,7 +137,7 @@ export async function verify(id: string): Promise<Campaign> {
     });
     throw e;
   }
-  const report = verifyCampaign({ campaignId: id, docs, provider: p, prior: await priorDocs() });
+  const report = verifyCampaign({ campaignId: id, docs, provider: p, prior: await priorDocs(spaceOf(c0)) });
   const est = docs.find((d) => d.kind === "estimate")?.extraction;
   const updated = await updateCampaign(id, (c) => {
     c.docs = docs;
@@ -249,6 +251,18 @@ export async function confirmDonation(id: string, donationId: string, orderId: s
 }
 
 /** Mock mode only: fill a demo campaign with donors so the settlement step has something to split. */
+/** Mock mode only: make one held pledge look expired, to demonstrate how settlement copes. */
+export async function simulateExpiredHold(id: string) {
+  if (paypal.paypalMode() !== "mock") throw new HttpError(400, "Only available in mock mode.");
+  return updateCampaign(id, (c) => {
+    const d = c.donations.filter((x) => x.status === "held").sort((a, b) => Number(a.pledged) - Number(b.pledged))[0];
+    if (!d) throw new HttpError(409, "No held pledges to expire");
+    d.authorizationExpiresAt = new Date(Date.now() - 864e5).toISOString();
+    addEvent(c, { actor: "system", kind: "mock.expired", message: `(Mock) ${d.donorName}'s PayPal hold is now treated as expired.` });
+    return c;
+  });
+}
+
 export async function simulateDonors(id: string) {
   if (paypal.paypalMode() !== "mock") throw new HttpError(400, "Simulated donors are only available in mock mode. Donate with a PayPal sandbox account instead.");
   const people = [["Ananya", "120.00"], ["Tom", "50.00"], ["Grace", "500.00"], ["Rahul", "250.00"], ["Lucia", "75.00"], ["Coworkers at Hollis & Co.", "1200.00"], ["Sam", "40.00"], ["Mei", "365.00"]];
@@ -274,7 +288,7 @@ export async function addCareReceipt(id: string, file: { filename: string; buf: 
   if (paypal.payeeMode() === "direct") throw new HttpError(409, "Care-cost receipts aren't available in direct-payee mode yet: each hold is payable only to the hospital.");
   if (careRoom(c).left <= 0) throw new HttpError(409, "The 10% care allowance for this campaign is already used.");
   const doc = await read(await ingest("receipt", file.filename, file.buf, "organizer"));
-  const care = await reviewReceipt({ campaign: c, doc, prior: await priorDocs() });
+  const care = await reviewReceipt({ campaign: c, doc, prior: await priorDocs(spaceOf(c)) });
   const updated = await updateCampaign(id, (cc) => {
     cc.docs.push(doc);
     cc.careCosts.push(care);
@@ -315,7 +329,7 @@ export async function submitFinalBill(id: string, file: { filename: string; buf:
     addEvent(cc, { actor: "hospital", kind: "bill.submitted", message: `${p.name} submitted the final bill (${doc.extraction?.documentNumber || doc.filename}).` });
   });
   const fresh = (await getCampaign(id))!;
-  const review = await reviewBill({ campaign: fresh, bill: doc, provider: p, prior: await priorDocs() });
+  const review = await reviewBill({ campaign: fresh, bill: doc, provider: p, prior: await priorDocs(spaceOf(fresh)) });
   await remember(fresh, [doc]);
   const after = await updateCampaign(id, (cc) => {
     cc.billReview = review;
@@ -357,7 +371,33 @@ export async function settle(id: string): Promise<Campaign> {
   const billCents = toCents(c.billReview!.payable);
   const careCents = care.reduce((s, k) => s + toCents(k.approved), 0);
   const held = c.donations.filter((d) => d.status === "held" && d.authorizationId);
-  const { allocations } = allocate(billCents + careCents, held.map((d) => ({ id: d.id, pledgedCents: toCents(d.pledged) })));
+
+  // Re-check every hold with PayPal first. A hold that expired, was voided or was declined
+  // can't be collected: its share is spread across the others, and any gap is reported.
+  const checks = await Promise.all(
+    held.map(async (d) => {
+      try {
+        const a = await paypal.getAuthorization(d.authorizationId!, d.authorizationExpiresAt);
+        return { d, usable: a.usable, why: a.usable ? "" : `hold is ${a.status.toLowerCase()}` };
+      } catch {
+        return { d, usable: true, why: "" }; // couldn't check: let the capture decide
+      }
+    }),
+  );
+  const plan = planCaptures(billCents + careCents, checks.map((x) => ({ id: x.d.id, pledgedCents: toCents(x.d.pledged), usable: x.usable })));
+  const { allocations } = plan;
+  if (plan.lapsed.length) {
+    await updateCampaign(id, (cc) => {
+      for (const lid of plan.lapsed) {
+        const dd = cc.donations.find((x) => x.id === lid)!;
+        dd.status = "lapsed";
+        dd.problem = checks.find((x) => x.d.id === lid)!.why;
+        dd.captured = "0.00";
+        dd.neverCharged = dd.pledged;
+      }
+      addEvent(cc, { actor: "paypal", kind: "settle.lapsed", message: `${plan.lapsed.length} pledge${plan.lapsed.length > 1 ? "s" : ""} could no longer be collected (the PayPal hold had expired or been released). ${plan.lapsed.length > 1 ? "Their share was" : "Its share was"} spread across the other pledges; nobody pays more than they pledged.` });
+    });
+  }
 
   let capturedCents = 0;
   for (const a of allocations) {
@@ -396,7 +436,10 @@ export async function settle(id: string): Promise<Campaign> {
       await updateCampaign(id, (cc) => {
         const dd = cc.donations.find((x) => x.id === d.id)!;
         dd.status = "failed";
-        addEvent(cc, { actor: "system", kind: "capture.failed", message: `Couldn't collect ${fmtMoney(fromCents(a.captureCents), cc.currency)} from one hold: ${(e as Error).message}` });
+        dd.problem = (e as Error).message.slice(0, 200);
+        dd.captured = "0.00";
+        dd.neverCharged = dd.pledged;
+        addEvent(cc, { actor: "paypal", kind: "capture.failed", message: `PayPal declined collecting ${fmtMoney(fromCents(a.captureCents), cc.currency)} from one pledge. The donor was not charged; the gap is shown as a shortfall.` });
       });
     }
   }
@@ -434,9 +477,11 @@ export async function settle(id: string): Promise<Campaign> {
       payoutStatus: direct ? "DIRECT" : payout?.status ?? (payoutError ? "FAILED" : "NONE"),
       payees: payees.map((p) => ({ name: p.name, amount: fromCents(p.cents) })),
       direct,
+      lapsed: cc.donations.filter((d) => d.status === "lapsed" || d.status === "failed").length,
+      shortfall: fromCents(Math.max(0, billCents + careCents - capturedCents)),
       at: nowIso(),
     };
-    if (payout) for (const p of payees) cc.movements.push({ id: uid("mv"), type: "payout", amount: fromCents(p.cents), currency: cc.currency, paypalId: payout.batchId, status: payout.status, at: nowIso(), note: `Paid directly to ${p.name}`, payee: p.name });
+    if (payout) for (const p of payees) cc.movements.push({ id: uid("mv"), type: "payout", amount: fromCents(p.cents), currency: cc.currency, paypalId: payout.batchId, status: payout.status, at: nowIso(), note: `Paid directly to ${p.name}`, payee: p.name, ref: p.ref });
     for (const k of cc.careCosts) if (care.some((x) => x.id === k.id)) k.status = "paid";
     cc.status = "settled";
     const who = payees.map((p) => `${fmtMoney(fromCents(p.cents), cc.currency)} to ${p.name}`).join(" and ");
@@ -445,7 +490,7 @@ export async function settle(id: string): Promise<Campaign> {
       kind: "campaign.settled",
       message: payoutError
         ? `Collected ${fmtMoney(fromCents(capturedCents), cc.currency)} from ${held.length} donors, but the payout failed (${payoutError}). The money is safe; retry from the hospital view.`
-        : `Settled: ${who || "nothing owed"}${direct ? ", captured straight into the provider's PayPal" : ""}. ${fmtMoney(fromCents(pledgedTotal - capturedCents), cc.currency)} of pledges was never charged.`,
+        : `Settled: ${who || "nothing owed"}${direct ? ", captured straight into the provider's PayPal" : ""}. ${fmtMoney(fromCents(pledgedTotal - capturedCents), cc.currency)} of pledges was never charged.${billCents + careCents > capturedCents ? ` Pledges fell ${fmtMoney(fromCents(billCents + careCents - capturedCents), cc.currency)} short of the verified costs; the hospital was paid first.` : ""}`,
     });
     return cc;
   });
@@ -502,19 +547,74 @@ export async function ask(id: string, question: string) {
   return answerQuestion(c, needProvider(c.providerId).name, question);
 }
 
+/** PayPal webhooks are the source of truth for the ledger: a movement shows as confirmed only
+ *  when PayPal says so (signature-verified upstream in /api/paypal/webhook). */
 export async function onWebhook(event: { event_type: string; resource: Record<string, unknown> }) {
-  const res = event.resource as { id?: string; custom_id?: string };
-  const custom = res.custom_id;
-  if (!custom?.includes(":")) return "ignored";
-  const [cid] = custom.split(":");
-  await updateCampaign(cid, (c) => addEvent(c, { actor: "paypal", kind: `webhook.${event.event_type.toLowerCase()}`, message: `PayPal confirmed ${event.event_type.toLowerCase().replace(/[._]/g, " ")} (${res.id ?? "?"}).` }));
-  return "recorded";
+  const r = event.resource as { id?: string; status?: string; payout_batch_id?: string; transaction_status?: string; payout_item?: { sender_item_id?: string }; supplementary_data?: { related_ids?: { authorization_id?: string } } };
+  const t = event.event_type;
+  let n = 0;
+  if (t === "PAYMENT.AUTHORIZATION.CREATED") n = await confirmMovements((m) => m.type === "hold" && m.paypalId === r.id, "webhook");
+  else if (t === "PAYMENT.AUTHORIZATION.VOIDED") n = await confirmMovements((m) => m.type === "void" && m.paypalId === r.id, "webhook", "VOIDED");
+  else if (t === "PAYMENT.CAPTURE.COMPLETED") {
+    n = await confirmMovements((m) => m.type === "capture" && m.paypalId === r.id, "webhook", "COMPLETED");
+    // final_capture released the rest of that hold at the same moment
+    const auth = r.supplementary_data?.related_ids?.authorization_id;
+    if (auth) n += await confirmMovements((m) => m.type === "void" && m.paypalId === auth && !m.confirmed, "webhook", "RELEASED");
+  } else if (t === "PAYMENT.CAPTURE.DENIED" || t === "PAYMENT.CAPTURE.DECLINED") n = await confirmMovements((m) => m.type === "capture" && m.paypalId === r.id, "webhook", "DENIED");
+  else if (t.startsWith("PAYMENT.PAYOUTS-ITEM.")) {
+    const ref = r.payout_item?.sender_item_id;
+    n = await confirmMovements((m) => m.type === "payout" && m.paypalId === r.payout_batch_id && (!ref || m.ref === ref), "webhook", (r.transaction_status ?? t.split(".").pop())!.toUpperCase());
+  }
+  return n ? `confirmed ${n}` : "no matching movement";
+}
+
+/** Read every unconfirmed movement back from the PayPal API (for local runs without a
+ *  public webhook URL, or if a webhook was missed). */
+export async function syncWithPayPal(id: string) {
+  const c = await getCampaign(id);
+  if (!c) throw new HttpError(404, "Campaign not found");
+  const results: { id: string; status: string }[] = [];
+  const batches = new Map<string, Awaited<ReturnType<typeof paypal.getPayoutBatch>>>();
+  for (const m of c.movements.filter((x) => !x.confirmed || x.confirmed.via === "mock")) {
+    try {
+      if (m.type === "capture") results.push({ id: m.id, status: (await paypal.getCapture(m.paypalId)).status });
+      else if (m.type === "hold" || m.type === "void") {
+        const d = c.donations.find((x) => x.id === m.donationId);
+        results.push({ id: m.id, status: (await paypal.getAuthorization(m.paypalId, d?.authorizationExpiresAt)).status });
+      } else if (m.type === "payout") {
+        if (!batches.has(m.paypalId)) batches.set(m.paypalId, await paypal.getPayoutBatch(m.paypalId));
+        const b = batches.get(m.paypalId)!;
+        results.push({ id: m.id, status: b.items.find((i) => i.ref === m.ref)?.status ?? b.status });
+      }
+    } catch {
+      /* leave unconfirmed */
+    }
+  }
+  const OK: Record<string, string[]> = {
+    hold: ["CREATED", "CAPTURED", "PARTIALLY_CAPTURED", "VOIDED"],
+    capture: ["COMPLETED"],
+    void: ["VOIDED", "CAPTURED", "PARTIALLY_CAPTURED"],
+    payout: ["SUCCESS", "UNCLAIMED", "PENDING"],
+  };
+  return updateCampaign(id, (cc) => {
+    let n = 0;
+    for (const r of results) {
+      const m = cc.movements.find((x) => x.id === r.id)!;
+      if (OK[m.type].includes(r.status) && !(m.type === "payout" && r.status === "PENDING")) {
+        m.confirmed = { at: nowIso(), via: "api", status: r.status };
+        n++;
+      }
+      if (m.type === "payout") m.status = r.status;
+    }
+    addEvent(cc, { actor: "paypal", kind: "sync", message: `Checked ${results.length} money movements with PayPal; ${n} confirmed.` });
+    return cc;
+  });
 }
 
 /** Reuse radar: every document seen in more than one campaign, with where it went. */
-export async function reuseRadar() {
-  const fps = await fingerprints();
-  const camps = new Map((await listCampaigns()).map((c) => [c.id, c]));
+export async function reuseRadar(space: string) {
+  const fps = await fingerprints(space);
+  const camps = new Map((await listCampaigns([space])).map((c) => [c.id, c]));
   const groups = new Map<string, typeof fps>();
   for (const f of fps) {
     const keys = [`sha:${f.sha256}`, ...(f.fingerprint ? [`fp:${f.fingerprint}`] : [])];

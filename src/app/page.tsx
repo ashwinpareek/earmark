@@ -1,6 +1,7 @@
 import Link from "next/link";
 import HeroReceipt from "@/components/HeroReceipt";
 import DemoButton from "@/components/DemoButtons";
+import ResetDemo from "@/components/ResetDemo";
 
 export default function Home() {
   return (
@@ -72,6 +73,8 @@ export default function Home() {
         <div>
           <h2 id="try">Try all three</h2>
           <p className="intro">Demo campaigns built from fictional hospital documents. Open them in order, then the <Link href="/radar">reuse radar</Link>.</p>
+          <p className="intro">Your demo is private to your browser. Start again any time:</p>
+          <div style={{ marginTop: 10 }}><ResetDemo /></div>
         </div>
         <div className="tryit three">
           <div className="card">

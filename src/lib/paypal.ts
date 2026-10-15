@@ -169,6 +169,28 @@ export async function authorizeOrder(orderId: string): Promise<AuthorizationResu
   };
 }
 
+/** Re-check a hold before collecting: still CREATED, and not past its expiry? */
+export async function getAuthorization(authorizationId: string, knownExpiry?: string): Promise<{ status: string; expiresAt?: string; usable: boolean }> {
+  if (paypalMode() === "mock") {
+    const expired = knownExpiry ? Date.parse(knownExpiry) < Date.now() : false;
+    return { status: expired ? "EXPIRED" : "CREATED", expiresAt: knownExpiry, usable: !expired };
+  }
+  const a = await pp<{ status: string; expiration_time?: string }>("GET", `/v2/payments/authorizations/${authorizationId}`);
+  const expired = a.expiration_time ? Date.parse(a.expiration_time) < Date.now() : false;
+  return { status: a.status, expiresAt: a.expiration_time, usable: a.status === "CREATED" && !expired };
+}
+
+export async function getCapture(captureId: string): Promise<{ status: string }> {
+  if (paypalMode() === "mock") return { status: "COMPLETED" };
+  return pp<{ status: string }>("GET", `/v2/payments/captures/${captureId}`);
+}
+
+export async function getPayoutBatch(batchId: string): Promise<{ status: string; items: { ref: string; status: string }[] }> {
+  if (paypalMode() === "mock") return { status: "SUCCESS", items: [] };
+  const r = await pp<{ batch_header: { batch_status: string }; items?: { transaction_status: string; payout_item: { sender_item_id: string } }[] }>("GET", `/v1/payments/payouts/${batchId}`);
+  return { status: r.batch_header.batch_status, items: (r.items ?? []).map((i) => ({ ref: i.payout_item.sender_item_id, status: i.transaction_status })) };
+}
+
 export async function getOrder(orderId: string) {
   if (paypalMode() === "mock") return { id: orderId, status: "APPROVED" };
   return pp<{ id: string; status: string }>("GET", `/v2/checkout/orders/${orderId}`);
