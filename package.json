@@ -1,0 +1,37 @@
+{
+  "name": "earmark",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Earmark \u2014 donations that can only pay the bill. Verified medical fundraising on PayPal.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p ${PORT:-3000}",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "samples": "python3 scripts/make-samples.py"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "ag-grid-community": "^36.2.0",
+    "ag-grid-react": "^36.2.0",
+    "ag-studio": "^3.0.0",
+    "ag-studio-react": "^3.0.0",
+    "nanoid": "^6.0.2",
+    "next": "^15.5.28",
+    "pdf-lib": "^1.17.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
+  }
+}
