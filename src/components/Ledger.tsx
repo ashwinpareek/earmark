@@ -40,8 +40,9 @@ function buildData(d: LedgerData): AgDataSourcesDefinition {
   const outcomes = d.campaigns.flatMap((c) => {
     const held = Math.max(0, Number(c.pledged) - Number(c.charged) - Number(c.neverCharged));
     return [
-      { id: `${c.id}-paid`, campaignId: c.id, outcome: "Paid to hospital", amount: Number(c.charged) },
+      { id: `${c.id}-paid`, campaignId: c.id, outcome: "Paid to hospital", amount: Number(c.charged) - Number(c.paidToPharmacies) },
       { id: `${c.id}-never`, campaignId: c.id, outcome: "Never charged", amount: Number(c.neverCharged) },
+      { id: `${c.id}-rx`, campaignId: c.id, outcome: "Paid to pharmacies", amount: Number(c.paidToPharmacies) },
       { id: `${c.id}-held`, campaignId: c.id, outcome: "Held, awaiting bill", amount: c.status === "settled" ? 0 : held },
     ].filter((r) => r.amount > 0);
   });
@@ -58,7 +59,7 @@ function buildData(d: LedgerData): AgDataSourcesDefinition {
         fields: fields([
           ["id", "Campaign ID", "textFormat", true], ["title", "Campaign", "textFormat"], ["patient", "Patient", "textFormat"], ["hospital", "Hospital", "textFormat"],
           ["status", "Status", "textFormat"], ["decision", "Verification", "textFormat"], ["goal", "Verified goal", "currencyFormat"], ["pledged", "Pledged", "currencyFormat"],
-          ["charged", "Charged to donors", "currencyFormat"], ["neverCharged", "Never charged", "currencyFormat"], ["paidToHospital", "Paid to hospital", "currencyFormat"],
+          ["charged", "Charged to donors", "currencyFormat"], ["neverCharged", "Never charged", "currencyFormat"], ["paidToHospital", "Paid to hospital", "currencyFormat"], ["paidToPharmacies", "Paid to pharmacies", "currencyFormat"],
           ["checksFailed", "Checks failed", "integerFormat"], ["paidToFamily", "Paid to family", "currencyFormat"], ["blocked", "Blocked (claimed by rejected campaigns)", "currencyFormat"], ["createdAt", "Started", "dateFormat"],
         ]),
       },
@@ -117,7 +118,7 @@ const money: AgPageState = {
   id: "money",
   widgets: {
     "kpi-pledged": kpi("Pledged", sum("campaigns.pledged")),
-    "kpi-paid": kpi("Paid to hospitals", sum("campaigns.paidToHospital")),
+    "kpi-paid": kpi("Paid to providers", sum("campaigns.charged")),
     "kpi-never": kpi("Never charged", sum("campaigns.neverCharged")),
     "kpi-family": kpi("Paid to families", sum("campaigns.paidToFamily")),
     outcomes: { type: "donut-chart", dataMapping: { categoryKey: [{ id: "outcomes.outcome" }], valueKey: [sum("outcomes.amount")] }, format: title("Where pledges ended up") },
@@ -142,7 +143,7 @@ const integrity: AgPageState = {
     "kpi-campaigns": kpi("Campaigns checked", countd("campaigns.id")),
     "kpi-checks": kpi("Checks run", countd("checks.id")),
     "kpi-failed": kpi("Checks failed", sum("campaigns.checksFailed")),
-    "kpi-blocked": kpi("Fraudulent asks blocked", sum("campaigns.blocked")),
+    "kpi-blocked": kpi("High-risk asks held", sum("campaigns.blocked")),
     "check-pivot": {
       type: "pivot-grid",
       dataMapping: { rows: [{ id: "checks.check" }], columns: [{ id: "checks.status" }], values: [countd("checks.id")] },
@@ -180,8 +181,10 @@ const theme = studioTheme.withParams({
   chartPaletteStrokes1Color: "#0f766e",
   chartPaletteFills2Color: "#e7a92a",
   chartPaletteStrokes2Color: "#e7a92a",
-  chartPaletteFills3Color: "#4338ca",
-  chartPaletteStrokes3Color: "#4338ca",
+  chartPaletteFills3Color: "#5eaaa0",
+  chartPaletteStrokes3Color: "#5eaaa0",
+  chartPaletteFills4Color: "#4338ca",
+  chartPaletteStrokes4Color: "#4338ca",
 });
 
 const noSub = () => () => {};

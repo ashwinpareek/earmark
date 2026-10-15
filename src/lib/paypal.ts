@@ -92,6 +92,9 @@ export interface CreateOrderInput {
   invoiceId: string;
   returnUrl: string;
   cancelUrl: string;
+  /** Direct mode: the provider is the payee, so captured money lands in ITS PayPal account and
+   *  never passes through the platform. Requires PayPal multiparty (approved partner) permissions. */
+  payeeEmail?: string;
 }
 
 export async function createAuthorizeOrder(input: CreateOrderInput): Promise<{ id: string; approveUrl?: string }> {
@@ -109,6 +112,7 @@ export async function createAuthorizeOrder(input: CreateOrderInput): Promise<{ i
           description: input.description.slice(0, 127),
           soft_descriptor: "EARMARK DONATION",
           amount: { currency_code: input.currency, value: input.amount },
+          ...(input.payeeEmail ? { payee: { email_address: input.payeeEmail } } : {}),
         },
       ],
       payment_source: {
@@ -216,11 +220,10 @@ export async function reauthorize(authorizationId: string, amount: string, curre
 // ─── Payouts ────────────────────────────────────────────────────────
 
 export async function createPayout(args: {
-  receiverEmail: string;
-  amount: string;
+  items: { receiverEmail: string; amount: string; note: string; ref: string }[];
   currency: string;
   senderBatchId: string;
-  note: string;
+  subject?: string;
 }): Promise<{ batchId: string; status: string }> {
   if (paypalMode() === "mock") return { batchId: uid("MOCKBATCH").toUpperCase(), status: "SUCCESS" };
   const res = await pp<{ batch_header: { payout_batch_id: string; batch_status: string } }>(
@@ -229,23 +232,23 @@ export async function createPayout(args: {
     {
       sender_batch_header: {
         sender_batch_id: args.senderBatchId,
-        email_subject: "Earmark: payment for a verified patient bill",
-        email_message: args.note.slice(0, 1000),
+        email_subject: args.subject ?? "Earmark: payment for a verified patient bill",
+        email_message: "Donations raised on Earmark for a verified patient bill.",
       },
-      items: [
-        {
-          recipient_type: "EMAIL",
-          receiver: args.receiverEmail,
-          amount: { value: args.amount, currency: args.currency },
-          note: args.note.slice(0, 4000),
-          sender_item_id: args.senderBatchId,
-        },
-      ],
+      items: args.items.map((it) => ({
+        recipient_type: "EMAIL",
+        receiver: it.receiverEmail,
+        amount: { value: it.amount, currency: args.currency },
+        note: it.note.slice(0, 4000),
+        sender_item_id: it.ref.slice(0, 63),
+      })),
     },
     { requestId: `payout-${args.senderBatchId}` },
   );
   return { batchId: res.batch_header.payout_batch_id, status: res.batch_header.batch_status };
 }
+
+export const payeeMode = (): "payout" | "direct" => (process.env.PAYEE_MODE === "direct" ? "direct" : "payout");
 
 // ─── Webhooks ───────────────────────────────────────────────────────
 

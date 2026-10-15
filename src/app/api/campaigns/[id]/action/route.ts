@@ -16,6 +16,8 @@ const Action = z.discriminatedUnion("action", [
   z.object({ action: z.literal("cancel"), reason: z.string().max(500).default("") }),
   z.object({ action: z.literal("retry_payout") }),
   z.object({ action: z.literal("ask"), question: z.string().min(3).max(500) }),
+  z.object({ action: z.literal("respond"), text: z.string().min(10, "Explain in a sentence or two").max(2000) }),
+  z.object({ action: z.literal("review_care"), careId: z.string(), approve: z.boolean() }),
 ]);
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -33,6 +35,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       case "cancel": return view(await wf.cancelCampaign(id, a.reason));
       case "retry_payout": return view(await wf.retryPayout(id));
       case "ask": return wf.ask(id, a.question);
+      case "respond": return view(await wf.organizerRespond(id, a.text));
+      case "review_care": return view(await wf.reviewerDecideCare(id, a.careId, a.approve));
     }
   });
 }

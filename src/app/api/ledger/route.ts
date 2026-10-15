@@ -13,10 +13,12 @@ export async function GET() {
       decision: c.verification?.decision ?? "pending", goal: Number(c.goal), currency: c.currency, createdAt: c.createdAt.slice(0, 10),
       pledged: c.donations.filter((d) => ["held", "captured", "voided"].includes(d.status)).reduce((s, d) => s + Number(d.pledged), 0),
       charged: Number(c.settlement?.captured ?? 0), neverCharged: Number(c.settlement?.neverCharged ?? 0),
-      paidToHospital: c.movements.filter((m) => m.type === "payout").reduce((s, m) => s + Number(m.amount), 0),
+      paidToHospital: c.settlement?.direct ? Number(c.settlement.captured) : c.movements.filter((m) => m.type === "payout" && m.payee === provider(c.providerId)?.name).reduce((s, m) => s + Number(m.amount), 0),
+      paidToPharmacies: c.movements.filter((m) => m.type === "payout" && m.payee && m.payee !== provider(c.providerId)?.name).reduce((s, m) => s + Number(m.amount), 0),
       checksFailed: c.verification?.checks.filter((k) => k.status === "fail").length ?? 0,
       paidToFamily: 0, // by construction: money only ever moves to the hospital's registered account
-      blocked: c.status === "rejected" ? Number(c.docs.find((d) => d.kind === "estimate")?.extraction?.total ?? 0) : 0,
+      // the inflated amount fraudulent campaigns asked for, held or rejected before anyone could give
+      blocked: c.status === "rejected" || (c.status === "needs_review" && c.verification?.risk === "high") ? Number(c.docs.find((d) => d.kind === "estimate")?.extraction?.total ?? 0) : 0,
     }));
     const donations = cs.flatMap((c) => c.donations.filter((d) => d.status !== "pending").map((d) => ({
       id: d.id, campaignId: c.id, donor: d.anonymous ? "Anonymous" : d.donorName, status: d.status, pledged: Number(d.pledged),

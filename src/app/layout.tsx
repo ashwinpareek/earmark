@@ -41,7 +41,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <span className={`dot ${ai === "offline" ? "warn" : ""}`} /> {aiModelName()}
               </span>
               <Link href="/campaigns" className="hide-sm">Campaigns</Link>
-              <Link href="/hospital" className="hide-sm">Hospitals</Link>
+              <Link href="/radar" className="hide-sm">Radar</Link>
+              <Link href="/hospital" className="hide-sm">Providers</Link>
               <Link href="/review" className="hide-sm">Review</Link>
               <Link href="/ledger" className="hide-sm">Ledger</Link>
               <Link href="/start" className="btn sm">Start a campaign</Link>

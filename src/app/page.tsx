@@ -10,7 +10,7 @@ export default function Home() {
           <h1>Donations that can only pay the bill.</h1>
           <p className="lede">
             Earmark checks the hospital&apos;s documents before a medical fundraiser goes live. Donations are held on PayPal, not charged. When the
-            hospital&apos;s bill is verified, each donor pays a fair share, straight to the hospital, and the rest is never charged.
+            bill is verified, each donor pays a fair share straight to the verified provider, and the rest is never charged.
           </p>
           <div className="row">
             <Link href="/start" className="btn">Start a campaign</Link>
@@ -34,7 +34,7 @@ export default function Home() {
           <li><div><strong>Earmark checks the documents</strong><p>Is the hospital real and are its details right? Do the totals add up? Is it the same patient everywhere? Has this document been used in another campaign? Fake campaigns stop here.</p></div></li>
           <li><div><strong>Donors pledge, and PayPal holds the money</strong><p>Each donation is a PayPal authorization. Nothing is charged, and donors can see exactly where their money can go.</p></div></li>
           <li><div><strong>The hospital submits the final bill</strong><p>Earmark compares it with the estimate line by line. Parking passes and gift-shop charges aren&apos;t medical care, so donations don&apos;t pay for them.</p></div></li>
-          <li><div><strong>Every donor pays the same fair share</strong><p>Earmark collects only what the verified bill needs, splits it evenly across pledges and pays the hospital directly. The rest of every pledge is released and never charged.</p></div></li>
+          <li><div><strong>Every donor pays the same fair share</strong><p>Earmark collects only what the verified bill needs, splits it evenly across pledges and pays the hospital directly. Up to 10% can cover verified pharmacy receipts, paid to the pharmacy. The rest of every pledge is released and never charged.</p></div></li>
         </ol>
       </section>
 
@@ -44,10 +44,10 @@ export default function Home() {
           <p className="intro">An AI reads the documents. Plain rules decide, and every result shows its evidence.</p>
         </div>
         <div className="checklist">
-          <div><b>The hospital is verified</b><span>Name, phone and licence number must match the hospital registry.</span></div>
+          <div><b>The provider is verified</b><span>Hospital, clinic or pharmacy: name, phone and licence must match the registry.</span></div>
           <div><b>The totals add up</b><span>Line items must explain the printed total, to the cent.</span></div>
           <div><b>One patient, everywhere</b><span>Name and age agree across the estimate, registration card and bill.</span></div>
-          <div><b>Nothing is reused</b><span>A file or document number seen in another campaign is rejected.</span></div>
+          <div><b>Nothing is reused</b><span>A file or document number seen in another campaign puts it on hold.</span></div>
           <div><b>No signs of editing</b><span>Numbers in a different font, pasted regions, overwritten totals.</span></div>
           <div><b>No hidden instructions</b><span>A document that tells the AI to approve it is treated as fraud.</span></div>
           <div><b>The bill matches the estimate</b><span>Growth beyond 15% of the verified estimate needs a human reviewer.</span></div>
@@ -55,21 +55,39 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="band" aria-labelledby="fair">
+        <div>
+          <h2 id="fair">Fair to real families</h2>
+          <p className="intro">Stopping fraud must never mean turning away a sick child.</p>
+        </div>
+        <div className="checklist">
+          <div><b>Rules never reject anyone</b><span>A failed check puts the campaign on hold with the evidence. A person decides, and the family can explain.</span></div>
+          <div><b>Medicines are covered too</b><span>Up to 10% of the goal for verified pharmacy or supply receipts, paid to the pharmacy.</span></div>
+          <div><b>The family never handles money</b><span>Payments go to verified providers only, so nobody can question where it went.</span></div>
+          <div><b>Built for urgent care</b><span>PayPal holds pledges for up to 29 days. Longer treatments settle bill by bill.</span></div>
+        </div>
+      </section>
+
       <section className="band" aria-labelledby="try">
         <div>
-          <h2 id="try">Try both sides</h2>
-          <p className="intro">Two demo campaigns built from fictional hospital documents.</p>
+          <h2 id="try">Try all three</h2>
+          <p className="intro">Demo campaigns built from fictional hospital documents. Open them in order, then the <Link href="/radar">reuse radar</Link>.</p>
         </div>
-        <div className="tryit">
+        <div className="tryit three">
           <div className="card">
             <h3>Maya needs emergency surgery</h3>
-            <p>A real estimate, registration card and doctor&apos;s note. Verified in seconds. Pledge, then submit the hospital&apos;s final bill and watch the money split.</p>
+            <p>A genuine estimate, registration card and doctor&apos;s note. Verified in seconds. Pledge, submit the hospital&apos;s bill and a pharmacy receipt, and watch the money split.</p>
             <DemoButton scenario="honest" label="Open Maya's campaign" />
           </div>
           <div className="card">
             <h3>An urgent appeal for Leo</h3>
-            <p>An estimate with an edited total, a borrowed document number, a mismatched patient and a hidden note to the AI. See what happens.</p>
+            <p>An edited total, a borrowed document number, a mismatched patient and a hidden note telling the AI to approve it.</p>
             <DemoButton scenario="fraud" label="Open Leo's campaign" className="btn danger" />
+          </div>
+          <div className="card">
+            <h3>A copy of Maya&apos;s campaign</h3>
+            <p>A stranger uploads Maya&apos;s real documents to raise money for themselves. The most common scam, caught in one check.</p>
+            <DemoButton scenario="copycat" label="Open the copycat" className="btn danger" />
           </div>
         </div>
       </section>

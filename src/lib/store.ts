@@ -16,6 +16,10 @@ export interface FingerprintEntry {
   sha256: string;
   fingerprint: string;
   patientKey: string;
+  campaignLabel: string;
+  docKind: string;
+  docNumber: string;
+  issuer: string;
   at: string;
 }
 
@@ -36,6 +40,7 @@ async function load(): Promise<DB> {
     g.__earmarkDb = { campaigns: {}, fingerprints: [], webhookEvents: [] };
   }
   g.__earmarkDb.fingerprints ??= [];
+  for (const c of Object.values(g.__earmarkDb.campaigns)) c.careCosts ??= [];
   g.__earmarkDb.webhookEvents ??= [];
   return g.__earmarkDb;
 }

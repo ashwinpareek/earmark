@@ -1,10 +1,11 @@
-import { addEvent, addFingerprints, fingerprints, getCampaign, HttpError, listCampaigns, saveCampaign, updateCampaign } from "./store";
+import { addEvent, addFingerprints, fingerprints, getCampaign, HttpError, listCampaigns, saveCampaign, tx, updateCampaign } from "./store";
 import type { Campaign, Doc, DocKind, Donation, Extraction } from "./types";
-import { provider as getProvider } from "./providers";
+import { isCampaignPayee, provider as getProvider } from "./providers";
 import { readFile, storeFile } from "./files";
 import { readDocument } from "./reader";
 import { fingerprintOf, patientKey, verifyCampaign, type PriorDoc } from "./forensics";
 import { reviewBill } from "./reconcile";
+import { careRoom, reviewReceipt } from "./care";
 import { allocate } from "./settlement";
 import { answerQuestion } from "./agents";
 import * as paypal from "./paypal";
@@ -17,16 +18,39 @@ const MAX_OVERPLEDGE = 1.25; // pledges may exceed the goal by 25%: unneeded hol
 
 function needProvider(id: string) {
   const p = getProvider(id);
-  if (!p) throw new HttpError(400, "Choose a hospital from the verified list");
+  if (!p) throw new HttpError(400, "Choose a provider from the verified list");
   return p;
 }
 
 function expect(c: Campaign, ...ok: Campaign["status"][]) {
-  if (!ok.includes(c.status)) throw new HttpError(409, `Campaign is ${c.status.replace("_", " ")}; this action needs ${ok.join(" or ")}`);
+  if (!ok.includes(c.status)) throw new HttpError(409, `Campaign is ${c.status.replace(/_/g, " ")}; this action needs ${ok.join(" or ").replace(/_/g, " ")}`);
 }
 
+const labelFor = (c: Pick<Campaign, "title" | "patient">) => `${c.title} (${c.patient.displayName})`;
+
 async function priorDocs(): Promise<PriorDoc[]> {
-  return (await fingerprints()).map((f) => ({ campaignId: f.campaignId, docId: f.docId, sha256: f.sha256, fingerprint: f.fingerprint, patientKey: f.patientKey }));
+  return (await fingerprints()).map((f) => ({ campaignId: f.campaignId, docId: f.docId, sha256: f.sha256, fingerprint: f.fingerprint, patientKey: f.patientKey, campaignLabel: f.campaignLabel }));
+}
+
+async function remember(c: Campaign, docs: Doc[]) {
+  await addFingerprints(
+    docs.filter((d) => d.extraction).map((d) => ({
+      campaignId: c.id, docId: d.id, sha256: d.sha256, fingerprint: fingerprintOf(d.extraction!), patientKey: patientKey(d.extraction!.patientName),
+      campaignLabel: labelFor(c), docKind: d.kind, docNumber: d.extraction!.documentNumber, issuer: d.extraction!.providerName,
+    })),
+  );
+}
+
+/** When a campaign's documents show up in another campaign, tell the original family. */
+async function alertOriginals(from: Campaign, refs: { campaignId: string }[]) {
+  for (const r of refs) {
+    await updateCampaign(r.campaignId, (o) => {
+      // Only alert genuine originals — never a campaign that was itself caught reusing documents.
+      if (o.verification?.checks.some((k) => k.id === "duplicate" && k.status === "fail")) return;
+      o.protectedCopies = (o.protectedCopies ?? 0) + 1;
+      addEvent(o, { actor: "system", kind: "reuse.blocked", message: `Earmark caught a copy of documents from this campaign being used in another campaign. It was held for review; no donor can be charged for it.` });
+    }).catch(() => undefined);
+  }
 }
 
 async function ingest(kind: DocKind, filename: string, buf: Buffer, uploadedBy: Doc["uploadedBy"]): Promise<Doc> {
@@ -54,7 +78,7 @@ export function factsFrom(est: Extraction, providerName: string, docs: Doc[], cu
   if (est.diagnosis) f.push(`Diagnosis on the hospital documents: ${est.diagnosis}.`);
   if (est.patientAge != null) f.push(`${who} is ${est.patientAge} years old, consistent across ${docs.filter((d) => d.extraction?.patientName).length} documents.`);
   if (est.documentDate) f.push(`The estimate was issued on ${est.documentDate}${est.documentNumber ? ` (ref. ${est.documentNumber})` : ""}.`);
-  f.push(`Money raised can only be paid to ${providerName}'s registered PayPal account, against the final bill.`);
+  f.push(`Money raised can only be paid to ${providerName}'s registered PayPal account against the final bill, plus up to 10% for verified pharmacy receipts paid to the pharmacy.`);
   return f;
 }
 
@@ -71,6 +95,7 @@ export interface NewCampaign {
 
 export async function createCampaign(input: NewCampaign): Promise<Campaign> {
   const p = needProvider(input.providerId);
+  if (!isCampaignPayee(p)) throw new HttpError(400, "Campaigns raise money for a hospital or clinic");
   if (!input.files.some((f) => f.kind === "estimate")) throw new HttpError(400, "Upload the hospital's cost estimate");
   const docs = await Promise.all(input.files.map((f) => ingest(f.kind, f.filename, f.buf, "organizer")));
   const c: Campaign = {
@@ -87,6 +112,7 @@ export async function createCampaign(input: NewCampaign): Promise<Campaign> {
     goal: "0.00",
     docs,
     donations: [],
+    careCosts: [],
     movements: [],
     events: [],
   };
@@ -105,25 +131,22 @@ export async function verify(id: string): Promise<Campaign> {
   } catch (e) {
     await updateCampaign(id, (c) => {
       c.status = "needs_review";
-      addEvent(c, { actor: "system", kind: "verify.error", message: `Documents couldn't be read automatically: ${(e as Error).message}` });
+      addEvent(c, { actor: "system", kind: "verify.error", message: `Documents couldn't be read automatically, so a person will review them: ${(e as Error).message}` });
     });
     throw e;
   }
   const report = verifyCampaign({ campaignId: id, docs, provider: p, prior: await priorDocs() });
-  await addFingerprints(
-    docs.filter((d) => d.extraction).map((d) => ({ campaignId: id, docId: d.id, sha256: d.sha256, fingerprint: fingerprintOf(d.extraction!), patientKey: patientKey(d.extraction!.patientName) })),
-  );
-  return updateCampaign(id, (c) => {
+  const est = docs.find((d) => d.kind === "estimate")?.extraction;
+  const updated = await updateCampaign(id, (c) => {
     c.docs = docs;
     c.verification = report;
-    const est = docs.find((d) => d.kind === "estimate")?.extraction;
     if (est) {
       c.patient = { displayName: displayName(est.patientName), age: est.patientAge };
       c.currency = est.currency || c.currency;
     }
     c.goal = report.verifiedGoal.toFixed(2);
-    c.facts = est && report.decision !== "rejected" ? factsFrom(est, p.name, docs, c.currency) : [];
-    c.status = report.decision === "verified" ? "live" : report.decision === "needs_review" ? "needs_review" : "rejected";
+    c.facts = est && report.decision === "verified" ? factsFrom(est, p.name, docs, c.currency) : [];
+    c.status = report.decision === "verified" ? "live" : "needs_review";
     const model = docs.find((d) => d.readerModel)?.readerModel ?? "the reader";
     const fails = report.checks.filter((k) => k.status === "fail").length;
     addEvent(c, {
@@ -131,31 +154,46 @@ export async function verify(id: string): Promise<Campaign> {
       kind: `verify.${report.decision}`,
       message:
         report.decision === "verified"
-          ? `Verified: ${report.checks.length} checks run on ${docs.length} documents (read by ${model}). Goal set to ${fmtMoney(c.goal, c.currency)}. The campaign is live.`
-          : report.decision === "needs_review"
-            ? `Held for a human reviewer: ${report.summary}`
-            : `Rejected: ${fails} checks failed. No donor can be charged for this campaign.`,
+          ? `Verified: ${report.checks.length} checks on ${docs.length} documents (read by ${model}). Goal set to ${fmtMoney(c.goal, c.currency)}. The campaign is live.`
+          : fails
+            ? `On hold: ${fails} check${fails > 1 ? "s" : ""} failed (${report.risk} risk). Nobody can donate until a person reviews it. The family can respond.`
+            : `Held for a quick human review: ${report.summary}`,
     });
+    return structuredClone(c);
+  });
+  await remember(updated, docs);
+  const refs = report.checks.find((k) => k.id === "duplicate")?.refs ?? [];
+  if (refs.length) await alertOriginals(updated, refs);
+  return updated;
+}
+
+// ─── Family response & reviewer ───────────────────────────────────
+
+export async function organizerRespond(id: string, text: string) {
+  return updateCampaign(id, (c) => {
+    expect(c, "needs_review", "bill_needs_review");
+    c.organizerResponse = { text: text.trim().slice(0, 2000), at: nowIso() };
+    addEvent(c, { actor: "organizer", kind: "review.response", message: `${c.organizer.name} responded to the review: “${text.trim().slice(0, 220)}”` });
     return c;
   });
 }
-
-// ─── Reviewer ─────────────────────────────────────────────────────
 
 export async function reviewerDecideCampaign(id: string, approve: boolean, note: string) {
   return updateCampaign(id, (c) => {
     expect(c, "needs_review");
     c.status = approve ? "live" : "rejected";
     c.reviewerNote = note;
-    if (approve && Number(c.goal) <= 0) {
-      const est = c.docs.find((d) => d.kind === "estimate")?.extraction;
-      c.goal = (est?.total ?? 0).toFixed(2);
-    }
     if (approve && !c.facts.length) {
       const est = c.docs.find((d) => d.kind === "estimate")?.extraction;
-      if (est) c.facts = factsFrom(est, needProvider(c.providerId).name, c.docs, c.currency);
+      if (est) c.facts = factsFrom({ ...est, total: Number(c.goal) }, needProvider(c.providerId).name, c.docs, c.currency);
     }
-    addEvent(c, { actor: "reviewer", kind: approve ? "review.approved" : "review.rejected", message: approve ? `A reviewer approved the campaign${note ? `: ${note}` : "."}` : `A reviewer rejected the campaign${note ? `: ${note}` : "."}` });
+    addEvent(c, {
+      actor: "reviewer",
+      kind: approve ? "review.approved" : "review.rejected",
+      message: approve
+        ? `A reviewer approved the campaign with a goal of ${fmtMoney(c.goal, c.currency)}${note ? `: ${note}` : "."}`
+        : `A reviewer rejected the campaign${note ? `: ${note}` : "."} No donor was or will be charged.`,
+    });
     return c;
   });
 }
@@ -182,6 +220,7 @@ export async function createDonationOrder(id: string, d: { donorName: string; do
     invoiceId: `${donation.id}`,
     returnUrl: `${base}/c/${c.id}`,
     cancelUrl: `${base}/c/${c.id}`,
+    payeeEmail: paypal.payeeMode() === "direct" ? needProvider(c.providerId).paypalEmail : undefined,
   });
   donation.orderId = order.id;
   await updateCampaign(id, (cc) => {
@@ -226,6 +265,42 @@ export async function simulateDonors(id: string) {
   return getCampaign(id);
 }
 
+// ─── Care-cost receipts ───────────────────────────────────────────
+
+export async function addCareReceipt(id: string, file: { filename: string; buf: Buffer }) {
+  const c = await getCampaign(id);
+  if (!c) throw new HttpError(404, "Campaign not found");
+  expect(c, "live", "bill_needs_review");
+  if (paypal.payeeMode() === "direct") throw new HttpError(409, "Care-cost receipts aren't available in direct-payee mode yet: each hold is payable only to the hospital.");
+  if (careRoom(c).left <= 0) throw new HttpError(409, "The 10% care allowance for this campaign is already used.");
+  const doc = await read(await ingest("receipt", file.filename, file.buf, "organizer"));
+  const care = await reviewReceipt({ campaign: c, doc, prior: await priorDocs() });
+  const updated = await updateCampaign(id, (cc) => {
+    cc.docs.push(doc);
+    cc.careCosts.push(care);
+    addEvent(cc, { actor: "ai", kind: `care.${care.status}`, message: care.note });
+    return structuredClone(cc);
+  });
+  await remember(updated, [doc]);
+  return updated;
+}
+
+export async function reviewerDecideCare(id: string, careId: string, approve: boolean) {
+  return updateCampaign(id, (c) => {
+    const k = c.careCosts.find((x) => x.id === careId);
+    if (!k) throw new HttpError(404, "Receipt not found");
+    if (k.status !== "held") throw new HttpError(409, "This receipt isn't waiting for review");
+    if (approve) {
+      k.approved = Math.min(k.eligible, careRoom(c, k.id).left);
+      k.status = "approved";
+    } else {
+      c.careCosts = c.careCosts.filter((x) => x.id !== careId);
+    }
+    addEvent(c, { actor: "reviewer", kind: approve ? "care.approved" : "care.rejected", message: approve ? `A reviewer approved ${fmtMoney(k.approved, c.currency)} from the ${k.issuer} receipt.` : `A reviewer rejected the ${k.issuer} receipt.` });
+    return c;
+  });
+}
+
 // ─── Final bill & settlement ─────────────────────────────────────
 
 export async function submitFinalBill(id: string, file: { filename: string; buf: Buffer }) {
@@ -241,7 +316,7 @@ export async function submitFinalBill(id: string, file: { filename: string; buf:
   });
   const fresh = (await getCampaign(id))!;
   const review = await reviewBill({ campaign: fresh, bill: doc, provider: p, prior: await priorDocs() });
-  await addFingerprints([{ campaignId: id, docId: doc.id, sha256: doc.sha256, fingerprint: fingerprintOf(doc.extraction!), patientKey: patientKey(doc.extraction!.patientName) }]);
+  await remember(fresh, [doc]);
   const after = await updateCampaign(id, (cc) => {
     cc.billReview = review;
     cc.status = review.decision === "approve" ? "settling" : review.decision === "needs_review" ? "bill_needs_review" : "live";
@@ -253,7 +328,7 @@ export async function submitFinalBill(id: string, file: { filename: string; buf:
           ? `Bill verified. ${review.explanation}`
           : review.decision === "needs_review"
             ? `Bill held for a reviewer: ${review.checks.filter((k) => k.status === "fail").map((k) => k.detail).join(" ")}`
-            : `Bill rejected — nothing was charged. ${review.checks.filter((k) => k.status === "fail").map((k) => k.label).join(", ")}.`,
+            : `Bill not accepted, nothing charged: ${review.checks.filter((k) => k.status === "fail").map((k) => k.label).join(", ")}. The hospital can submit a corrected bill.`,
     });
     return structuredClone(cc);
   });
@@ -264,7 +339,7 @@ export async function reviewerDecideBill(id: string, approve: boolean, note: str
   const c = await updateCampaign(id, (cc) => {
     expect(cc, "bill_needs_review");
     cc.status = approve ? "settling" : "live";
-    addEvent(cc, { actor: "reviewer", kind: approve ? "bill.review_approved" : "bill.review_rejected", message: approve ? `A reviewer approved the bill${note ? `: ${note}` : "."}` : `A reviewer rejected the bill${note ? `: ${note}` : "."} The hospital can submit a corrected bill.` });
+    addEvent(cc, { actor: "reviewer", kind: approve ? "bill.review_approved" : "bill.review_rejected", message: approve ? `A reviewer approved the bill${note ? `: ${note}` : "."}` : `A reviewer sent the bill back${note ? `: ${note}` : "."} The hospital can submit a corrected bill.` });
     return structuredClone(cc);
   });
   return approve ? settle(id) : c;
@@ -274,10 +349,15 @@ export async function settle(id: string): Promise<Campaign> {
   const c = await getCampaign(id);
   if (!c) throw new HttpError(404, "Campaign not found");
   expect(c, "settling");
-  const p = needProvider(c.providerId);
-  const payableCents = toCents(c.billReview!.payable);
+  const hosp = needProvider(c.providerId);
+  const direct = paypal.payeeMode() === "direct";
+
+  // What may be paid: the verified bill, plus approved care receipts (capped, never in direct mode).
+  const care = direct ? [] : c.careCosts.filter((k) => k.status === "approved" && k.approved > 0 && k.providerId);
+  const billCents = toCents(c.billReview!.payable);
+  const careCents = care.reduce((s, k) => s + toCents(k.approved), 0);
   const held = c.donations.filter((d) => d.status === "held" && d.authorizationId);
-  const { allocations } = allocate(payableCents, held.map((d) => ({ id: d.id, pledgedCents: toCents(d.pledged) })));
+  const { allocations } = allocate(billCents + careCents, held.map((d) => ({ id: d.id, pledgedCents: toCents(d.pledged) })));
 
   let capturedCents = 0;
   for (const a of allocations) {
@@ -290,7 +370,7 @@ export async function settle(id: string): Promise<Campaign> {
           currency: c.currency,
           finalCapture: true, // PayPal releases the rest of the hold automatically
           invoiceId: `${d.id}-cap`,
-          note: `Earmark: ${fromCents(a.captureCents)} of your ${d.pledged} paid ${p.name} for ${c.patient.displayName}'s verified bill. The rest was never charged.`,
+          note: `Earmark: ${fromCents(a.captureCents)} of your ${d.pledged} paid ${hosp.name} for ${c.patient.displayName}'s verified bill. The rest was never charged.`,
         });
         capturedCents += a.captureCents;
         await updateCampaign(id, (cc) => {
@@ -299,7 +379,7 @@ export async function settle(id: string): Promise<Campaign> {
           dd.captured = fromCents(a.captureCents);
           dd.neverCharged = fromCents(a.neverChargedCents);
           dd.captureId = cap.captureId;
-          cc.movements.push({ id: uid("mv"), type: "capture", amount: dd.captured, currency: cc.currency, paypalId: cap.captureId, status: cap.status, donationId: dd.id, at: nowIso(), note: "Fair share of the verified bill" });
+          cc.movements.push({ id: uid("mv"), type: "capture", amount: dd.captured, currency: cc.currency, paypalId: cap.captureId, status: cap.status, donationId: dd.id, at: nowIso(), note: direct ? `Fair share, captured straight into ${hosp.name}'s PayPal` : "Fair share of the verified costs", payee: direct ? hosp.name : undefined });
           if (a.neverChargedCents > 0) cc.movements.push({ id: uid("mv"), type: "void", amount: dd.neverCharged, currency: cc.currency, paypalId: dd.authorizationId!, status: "RELEASED", donationId: dd.id, at: nowIso(), note: "Rest of the hold released, never charged" });
         });
       } else {
@@ -321,18 +401,24 @@ export async function settle(id: string): Promise<Campaign> {
     }
   }
 
-  // Pay the hospital directly — never the organizer.
+  // Who gets what: the hospital first, then care receipts, in the order they were approved.
+  let left = capturedCents;
+  const payees: { name: string; email: string; cents: number; ref: string; note: string }[] = [];
+  const toHosp = Math.min(left, billCents);
+  left -= toHosp;
+  if (toHosp > 0) payees.push({ name: hosp.name, email: hosp.paypalEmail, cents: toHosp, ref: `${c.id}-bill`, note: `Donations for patient bill ${c.docs.find((d) => d.id === c.billReview!.docId)?.extraction?.documentNumber ?? ""} (${c.patient.displayName}).` });
+  for (const k of care) {
+    const pv = getProvider(k.providerId!)!;
+    const amt = Math.min(left, toCents(k.approved));
+    left -= amt;
+    if (amt > 0) payees.push({ name: pv.name, email: pv.paypalEmail, cents: amt, ref: `${k.id}`, note: `Donations for a verified receipt for ${c.patient.displayName}.` });
+  }
+
   let payout: { batchId: string; status: string } | undefined;
   let payoutError = "";
-  if (capturedCents > 0) {
+  if (!direct && payees.length) {
     try {
-      payout = await paypal.createPayout({
-        receiverEmail: p.paypalEmail,
-        amount: fromCents(capturedCents),
-        currency: c.currency,
-        senderBatchId: `${c.id}-settle`,
-        note: `Earmark donations for patient bill ${c.billReview ? c.docs.find((d) => d.id === c.billReview!.docId)?.extraction?.documentNumber ?? "" : ""} (${c.patient.displayName}).`,
-      });
+      payout = await paypal.createPayout({ currency: c.currency, senderBatchId: `${c.id}-settle`, items: payees.map((p) => ({ receiverEmail: p.email, amount: fromCents(p.cents), note: p.note, ref: p.ref })) });
     } catch (e) {
       payoutError = (e as Error).message;
     }
@@ -341,21 +427,25 @@ export async function settle(id: string): Promise<Campaign> {
   return updateCampaign(id, (cc) => {
     const pledgedTotal = held.reduce((s, d) => s + toCents(d.pledged), 0);
     cc.settlement = {
-      payable: cc.billReview!.payable.toFixed(2),
+      payable: fromCents(billCents + careCents),
       captured: fromCents(capturedCents),
       neverCharged: fromCents(pledgedTotal - capturedCents),
       payoutBatchId: payout?.batchId,
-      payoutStatus: payout?.status ?? (payoutError ? "FAILED" : "NONE"),
+      payoutStatus: direct ? "DIRECT" : payout?.status ?? (payoutError ? "FAILED" : "NONE"),
+      payees: payees.map((p) => ({ name: p.name, amount: fromCents(p.cents) })),
+      direct,
       at: nowIso(),
     };
-    if (payout) cc.movements.push({ id: uid("mv"), type: "payout", amount: fromCents(capturedCents), currency: cc.currency, paypalId: payout.batchId, status: payout.status, at: nowIso(), note: `Paid directly to ${p.name}` });
+    if (payout) for (const p of payees) cc.movements.push({ id: uid("mv"), type: "payout", amount: fromCents(p.cents), currency: cc.currency, paypalId: payout.batchId, status: payout.status, at: nowIso(), note: `Paid directly to ${p.name}`, payee: p.name });
+    for (const k of cc.careCosts) if (care.some((x) => x.id === k.id)) k.status = "paid";
     cc.status = "settled";
+    const who = payees.map((p) => `${fmtMoney(fromCents(p.cents), cc.currency)} to ${p.name}`).join(" and ");
     addEvent(cc, {
       actor: "paypal",
       kind: "campaign.settled",
       message: payoutError
-        ? `Collected ${fmtMoney(fromCents(capturedCents), cc.currency)} from ${held.length} donors, but the payout to ${p.name} failed (${payoutError}). The money is safe; retry from the hospital view.`
-        : `Settled: ${fmtMoney(fromCents(capturedCents), cc.currency)} paid directly to ${p.name}. ${fmtMoney(fromCents(pledgedTotal - capturedCents), cc.currency)} of pledges was never charged.`,
+        ? `Collected ${fmtMoney(fromCents(capturedCents), cc.currency)} from ${held.length} donors, but the payout failed (${payoutError}). The money is safe; retry from the hospital view.`
+        : `Settled: ${who || "nothing owed"}${direct ? ", captured straight into the provider's PayPal" : ""}. ${fmtMoney(fromCents(pledgedTotal - capturedCents), cc.currency)} of pledges was never charged.`,
     });
     return cc;
   });
@@ -365,13 +455,16 @@ export async function retryPayout(id: string) {
   const c = await getCampaign(id);
   if (!c?.settlement) throw new HttpError(409, "Nothing to pay out");
   if (c.settlement.payoutStatus !== "FAILED") return c;
-  const p = needProvider(c.providerId);
-  const payout = await paypal.createPayout({ receiverEmail: p.paypalEmail, amount: c.settlement.captured, currency: c.currency, senderBatchId: `${c.id}-settle-${Date.now()}`, note: `Earmark donations for ${c.patient.displayName}'s verified bill.` });
+  const items = (c.settlement.payees ?? []).map((p, i) => {
+    const pv = [needProvider(c.providerId), ...c.careCosts.map((k) => (k.providerId ? getProvider(k.providerId) : undefined))].find((x) => x?.name === p.name)!;
+    return { receiverEmail: pv.paypalEmail, amount: p.amount, note: `Earmark donations for ${c.patient.displayName}.`, ref: `${c.id}-r${i}` };
+  });
+  const payout = await paypal.createPayout({ currency: c.currency, senderBatchId: `${c.id}-settle-${Date.now()}`, items });
   return updateCampaign(id, (cc) => {
     cc.settlement!.payoutBatchId = payout.batchId;
     cc.settlement!.payoutStatus = payout.status;
-    cc.movements.push({ id: uid("mv"), type: "payout", amount: cc.settlement!.captured, currency: cc.currency, paypalId: payout.batchId, status: payout.status, at: nowIso(), note: `Paid directly to ${p.name}` });
-    addEvent(cc, { actor: "paypal", kind: "payout.sent", message: `Payout of ${fmtMoney(cc.settlement!.captured, cc.currency)} sent to ${p.name}.` });
+    for (const p of cc.settlement!.payees ?? []) cc.movements.push({ id: uid("mv"), type: "payout", amount: p.amount, currency: cc.currency, paypalId: payout.batchId, status: payout.status, at: nowIso(), note: `Paid directly to ${p.name}`, payee: p.name });
+    addEvent(cc, { actor: "paypal", kind: "payout.sent", message: `Payout sent (batch ${payout.batchId}).` });
     return cc;
   });
 }
@@ -392,7 +485,7 @@ export async function cancelCampaign(id: string, reason: string) {
         cc.movements.push({ id: uid("mv"), type: "void", amount: dd.pledged, currency: cc.currency, paypalId: dd.authorizationId!, status: v.status, donationId: dd.id, at: nowIso(), note: "Campaign cancelled — never charged" });
       });
     } catch {
-      /* hold will expire on its own */
+      /* the hold expires on its own */
     }
   }
   return updateCampaign(id, (cc) => {
@@ -418,4 +511,37 @@ export async function onWebhook(event: { event_type: string; resource: Record<st
   return "recorded";
 }
 
-export { listCampaigns };
+/** Reuse radar: every document seen in more than one campaign, with where it went. */
+export async function reuseRadar() {
+  const fps = await fingerprints();
+  const camps = new Map((await listCampaigns()).map((c) => [c.id, c]));
+  const groups = new Map<string, typeof fps>();
+  for (const f of fps) {
+    const keys = [`sha:${f.sha256}`, ...(f.fingerprint ? [`fp:${f.fingerprint}`] : [])];
+    const existing = keys.map((k) => groups.get(k)).find(Boolean);
+    const g = existing ?? [];
+    if (!g.some((x) => x.docId === f.docId)) g.push(f);
+    for (const k of keys) groups.set(k, g);
+  }
+  const seen = new Set<unknown>();
+  const out = [];
+  for (const g of groups.values()) {
+    if (seen.has(g)) continue;
+    seen.add(g);
+    const ids = [...new Set(g.map((x) => x.campaignId))];
+    if (ids.length < 2) continue;
+    const sorted = [...g].sort((a, b) => a.at.localeCompare(b.at));
+    const first = sorted[0];
+    out.push({
+      document: { kind: first.docKind, number: first.docNumber, issuer: first.issuer },
+      original: { campaignId: first.campaignId, label: first.campaignLabel, status: camps.get(first.campaignId)?.status ?? "unknown", at: first.at },
+      copies: ids.filter((x) => x !== first.campaignId).map((cid) => {
+        const f = sorted.find((x) => x.campaignId === cid)!;
+        return { campaignId: cid, label: f.campaignLabel, status: camps.get(cid)?.status ?? "unknown", at: f.at, sameFile: f.sha256 === first.sha256 };
+      }),
+    });
+  }
+  return out.sort((a, b) => (b.copies.at(-1)?.at ?? "").localeCompare(a.copies.at(-1)?.at ?? ""));
+}
+
+export { listCampaigns, tx };

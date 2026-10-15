@@ -14,8 +14,8 @@ const cents = (v?: string | number) => Math.round(Number(v ?? 0) * 100);
 
 const STATUS: Record<string, [string, string]> = {
   verifying: ["Checking documents", "held"],
-  needs_review: ["Waiting for a reviewer", "warn"],
-  rejected: ["Rejected", "fail"],
+  needs_review: ["On hold for review", "warn"],
+  rejected: ["Rejected by a reviewer", "fail"],
   live: ["Accepting pledges", "paid"],
   bill_review: ["Checking the final bill", "held"],
   bill_needs_review: ["Bill waiting for a reviewer", "warn"],
@@ -101,14 +101,21 @@ export default function CampaignRoom({ id }: { id: string }) {
         <div>
           {err && <div className="error" role="alert" style={{ marginBottom: 14 }}>{err}</div>}
 
+          {(c.protectedCopies ?? 0) > 0 && (
+            <div className="note" style={{ marginBottom: 14, background: "var(--paid-bg)", color: "var(--paid)" }}>
+              <strong>Protected.</strong> Earmark caught {c.protectedCopies === 1 ? "a copy" : `${c.protectedCopies} copies`} of this campaign&apos;s documents in other campaigns and held {c.protectedCopies === 1 ? "it" : "them"}. Donors can only give here. <Link href="/radar">See the reuse radar</Link>
+            </div>
+          )}
           {c.settlement && <Settlement c={c} hosp={hosp} />}
           {c.billReview && <BillReviewSection c={c} />}
 
           <section className="section" aria-labelledby="verif" style={{ marginTop: c.settlement || c.billReview ? 28 : 6 }}>
             <h2 id="verif">Document check</h2>
             <Verdict c={c} animate={firstLoad.current} />
-            <CheckList checks={c.verification?.checks ?? []} animate={firstLoad.current} />
+            <CheckList checks={c.verification?.checks ?? []} animate={firstLoad.current} role={role} />
           </section>
+
+          {c.careCosts.length > 0 && <CareSection c={c} role={role} />}
 
           {c.facts.length > 0 && (
             <section className="section" aria-labelledby="facts">
@@ -134,7 +141,7 @@ export default function CampaignRoom({ id }: { id: string }) {
                   <a key={d.id} className="doc-tile" href={`/api/docs/${c.id}/${d.id}?role=${role}`} target="_blank" rel="noreferrer">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     {d.mime.startsWith("image/") ? <img src={`/api/docs/${c.id}/${d.id}?role=${role}`} alt={`${d.kind} document`} /> : <div style={{ height: 170, display: "grid", placeItems: "center" }}>PDF</div>}
-                    <div><b>{{ estimate: "Estimate", identity: "Registration card", medical_note: "Clinical note", final_bill: "Final bill" }[d.kind]}</b>Read by {d.readerModel ?? "—"}</div>
+                    <div><b>{{ estimate: "Estimate", identity: "Registration card", medical_note: "Clinical note", final_bill: "Final bill", receipt: "Care receipt" }[d.kind]}</b>Read by {d.readerModel ?? "—"}</div>
                   </a>
                 ))}
               </div>
@@ -159,7 +166,7 @@ export default function CampaignRoom({ id }: { id: string }) {
           {role === "donor" && <DonatePanel c={c} status={status} act={act} reload={load} />}
           {role === "hospital" && <HospitalPanel c={c} hosp={hosp} onDone={setC} act={act} />}
           {role === "reviewer" && <ReviewerPanel c={c} act={act} />}
-          {role === "organizer" && <OrganizerPanel c={c} act={act} />}
+          {role === "organizer" && <OrganizerPanel c={c} act={act} onDone={setC} />}
           {c.status !== "rejected" && c.facts.length > 0 && <AskPanel act={act} />}
           <DonorList c={c} />
         </aside>
@@ -174,14 +181,28 @@ function Verdict({ c, animate }: { c: CampaignView; animate: boolean }) {
   const v = c.verification;
   if (!v) return <div className="verdict"><span className="thinking"><span className="spinner" /> Reading the documents</span></div>;
   const fails = v.checks.filter((k) => k.status === "fail").length;
-  const stamp =
-    v.decision === "verified" ? { t: "Verified", s: `${v.checks.length} checks`, k: "paid" }
-    : v.decision === "rejected" ? { t: "Rejected", s: `${fails} checks failed`, k: "fail" }
-    : { t: "In review", s: "a person decides", k: "warn" };
+  const rejected = c.status === "rejected";
+  const held = v.decision === "needs_review" && !rejected && c.status === "needs_review";
+  const approvedAfterReview = v.decision === "needs_review" && !held && !rejected;
+  const stamp = rejected
+    ? { t: "Rejected", s: "by a reviewer", k: "fail" }
+    : held
+      ? { t: "On hold", s: fails ? `${fails} check${fails > 1 ? "s" : ""} failed` : "quick review", k: fails ? "fail" : "warn" }
+      : approvedAfterReview
+        ? { t: "Cleared", s: "by a reviewer", k: "paid" }
+        : { t: "Verified", s: `${v.checks.length} checks`, k: "paid" };
+  const cls = rejected || (held && fails) ? "rejected" : held ? "needs_review" : "verified";
   return (
-    <div className={`verdict ${v.decision}`}>
+    <div className={`verdict ${cls}`}>
       <div>
-        <p><strong>{v.decision === "rejected" ? "This campaign failed verification." : v.decision === "verified" ? "The documents check out." : "A reviewer needs to look at this."}</strong> {v.summary}</p>
+        <p>
+          <strong>
+            {rejected ? "A reviewer rejected this campaign." : held ? (fails ? "This campaign is on hold." : "A person is taking a quick look.") : approvedAfterReview ? "Cleared by a reviewer." : "The documents check out."}
+          </strong>{" "}
+          {rejected ? "No donor was or will be charged." : approvedAfterReview ? `A person reviewed the flagged checks and approved a goal of ${money(c.goal, c.currency)}.` : v.summary}
+        </p>
+        {held && v.risk !== "low" && <p className="small" style={{ marginTop: 6 }}><span className={`pill ${v.risk === "high" ? "fail" : "warn"}`}>{v.risk === "high" ? "High risk" : "Medium risk"}</span> <span className="muted">Rules never reject a campaign by themselves. A person decides, and the family can explain.</span></p>}
+        {c.organizerResponse && <p className="small" style={{ marginTop: 8 }}><strong>{c.organizer.name.split(" ")[0]} responded:</strong> {c.organizerResponse.text}</p>}
         {c.reviewerNote && <p className="small muted" style={{ marginTop: 6 }}>Reviewer: {c.reviewerNote}</p>}
       </div>
       <span className={`stamp ${stamp.k} ${animate ? "land" : ""}`}>{stamp.t}<small>{stamp.s}</small></span>
@@ -189,7 +210,7 @@ function Verdict({ c, animate }: { c: CampaignView; animate: boolean }) {
   );
 }
 
-function CheckList({ checks, animate }: { checks: Check[]; animate: boolean }) {
+function CheckList({ checks, animate, role = "donor" }: { checks: Check[]; animate: boolean; role?: Role }) {
   const order = { fail: 0, warn: 1, pass: 2 } as const;
   const sorted = [...checks].sort((a, b) => order[a.status] - order[b.status]);
   return (
@@ -197,7 +218,17 @@ function CheckList({ checks, animate }: { checks: Check[]; animate: boolean }) {
       {sorted.map((k, i) => (
         <li key={k.id + i} className={`${k.status} ${animate ? "reveal" : ""}`} style={animate ? { animationDelay: `${i * 70}ms` } : undefined}>
           <span className={`mark ${k.status}`} aria-label={k.status}>{k.status === "pass" ? "✓" : k.status === "fail" ? "✕" : "!"}</span>
-          <div><div className="lbl">{k.label}</div><div className="ev">{k.detail}</div></div>
+          <div>
+            <div className="lbl">{k.label}</div>
+            <div className="ev">{k.detail}</div>
+            {k.refs && k.refs.length > 0 && (
+              <div className="refs">
+                <span>Also uploaded to</span>
+                {k.refs.map((r) => <Link key={r.campaignId} href={`/c/${r.campaignId}?role=${role}`}>{r.label}</Link>)}
+                <Link href="/radar" className="radar-link">Open the reuse radar</Link>
+              </div>
+            )}
+          </div>
           <span className="src">{k.source === "ai" ? "AI reading" : "Rule"}</span>
         </li>
       ))}
@@ -211,7 +242,16 @@ function MoneyCard({ c, held, donors, goal }: { c: CampaignView; held: number; d
     return (
       <div className="card money">
         <h3>No donations possible</h3>
-        <p className="small">This campaign failed verification, so it can&apos;t take pledges and nobody can be charged for it.</p>
+        <p className="small">A reviewer rejected this campaign, so it can&apos;t take pledges and nobody can be charged for it.</p>
+      </div>
+    );
+  }
+  if (c.status === "needs_review") {
+    return (
+      <div className="card money">
+        <h3>On hold</h3>
+        <p className="small">Pledges open only if a person clears the flagged checks. Until then, nobody can donate or be charged.</p>
+        {goal > 0 && <p className="tiny muted" style={{ marginTop: 8 }}>The documents support at most {money(goal, cur)}.</p>}
       </div>
     );
   }
@@ -220,7 +260,7 @@ function MoneyCard({ c, held, donors, goal }: { c: CampaignView; held: number; d
     return (
       <div className="card money">
         <h3>Bill paid</h3>
-        <div className="goal"><b>{money(s.captured, cur)}</b><span className="muted small">paid to {c.provider?.name}</span></div>
+        <div className="goal"><b>{money(s.captured, cur)}</b><span className="muted small">paid to {(s.payees?.length ?? 1) > 1 ? `${s.payees!.length} verified providers` : c.provider?.name}</span></div>
         <div className="bar" aria-hidden="true">
           <span style={{ width: `${(Number(s.captured) / Math.max(1, Number(s.captured) + Number(s.neverCharged))) * 100}%`, background: "var(--paid)" }} />
           <span style={{ width: `${(Number(s.neverCharged) / Math.max(1, Number(s.captured) + Number(s.neverCharged))) * 100}%`, background: "var(--never-fill)" }} />
@@ -253,7 +293,7 @@ function DonatePanel({ c, status, act, reload }: { c: CampaignView; status: Stat
 
   if (c.status !== "live") {
     const why = {
-      needs_review: "A reviewer is checking this campaign. Pledges open if it's approved.",
+      needs_review: "",
       verifying: "The documents are being checked.",
       bill_review: "The final bill is being checked. Pledges are closed.",
       bill_needs_review: "A reviewer is checking the final bill. Pledges are closed.",
@@ -289,7 +329,7 @@ function DonatePanel({ c, status, act, reload }: { c: CampaignView; status: Stat
           </div>
           <label className="field">Message (optional)<input value={msg} maxLength={280} onChange={(e) => setMsg(e.target.value)} /></label>
           <label className="check-line"><input type="checkbox" checked={anon} onChange={(e) => setAnon(e.target.checked)} /> Show my pledge as anonymous</label>
-          <p className="tiny muted">PayPal holds your pledge; you&apos;re not charged now. If the campaign is cancelled or the bill is smaller, the rest is released.</p>
+          <p className="tiny muted">PayPal holds your pledge; you&apos;re not charged now. If the campaign is cancelled or the bill is smaller, the rest is released. Holds last up to 29 days, which suits urgent treatment; if the bill comes later, Earmark asks you to renew.</p>
           {valid && status ? (
             <PayPalHold
               mode={status.paypal}
@@ -375,34 +415,124 @@ function ReviewerPanel({ c, act }: { c: CampaignView; act: (b: Record<string, un
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const which = c.status === "needs_review" ? "review_campaign" : c.status === "bill_needs_review" ? "review_bill" : null;
-  if (!which) return <div className="card"><h3>Reviewer</h3><p className="small">Nothing needs a decision on this campaign.</p></div>;
-  const run = async (approve: boolean) => { setBusy(true); try { await act({ action: which, approve, note }); } catch { /* shown */ } finally { setBusy(false); } };
+  const heldCare = c.careCosts.filter((k) => k.status === "held");
+  const run = async (body: Record<string, unknown>) => { setBusy(true); try { await act(body); } catch { /* shown */ } finally { setBusy(false); } };
+  if (!which && !heldCare.length) return <div className="card"><h3>Reviewer</h3><p className="small">Nothing needs a decision on this campaign.</p></div>;
   return (
-    <div className="card">
-      <h3>{which === "review_campaign" ? "Approve this campaign?" : "Approve this bill?"}</h3>
-      <p className="small muted" style={{ marginBottom: 12 }}>Read the failed and flagged checks, open the documents, and call the hospital if needed.</p>
-      <label className="field">Note for the timeline<textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Confirmed with the hospital's billing office by phone" /></label>
-      <div className="row" style={{ marginTop: 10 }}>
-        <button className="btn paid sm" disabled={busy} onClick={() => run(true)}>Approve</button>
-        <button className="btn danger sm" disabled={busy} onClick={() => run(false)}>Reject</button>
-      </div>
-    </div>
+    <>
+      {which && (
+        <div className="card">
+          <h3>{which === "review_campaign" ? "Clear this campaign?" : "Approve this bill?"}</h3>
+          <p className="small muted" style={{ marginBottom: 12 }}>Read the failed checks and their evidence, open the documents, and call the hospital&apos;s billing office on the number in the registry.</p>
+          {c.organizerResponse && <div className="note" style={{ marginBottom: 12 }}><strong>Family&apos;s response:</strong> {c.organizerResponse.text}</div>}
+          {which === "review_campaign" && <p className="small" style={{ marginBottom: 10 }}>If cleared, the goal will be {money(c.goal, c.currency)}: what the documents actually support.</p>}
+          <label className="field">Note for the timeline<textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Confirmed with the hospital's billing office by phone" /></label>
+          <div className="row" style={{ marginTop: 10 }}>
+            <button className="btn paid sm" disabled={busy} onClick={() => run({ action: which, approve: true, note })}>{which === "review_campaign" ? "Clear and go live" : "Approve"}</button>
+            <button className="btn danger sm" disabled={busy} onClick={() => run({ action: which, approve: false, note })}>{which === "review_campaign" ? "Reject" : "Send back"}</button>
+          </div>
+        </div>
+      )}
+      {heldCare.map((k) => (
+        <div className="card" key={k.id}>
+          <h3>Receipt from {k.issuer}</h3>
+          <p className="small" style={{ marginBottom: 10 }}>{k.note}</p>
+          <div className="row">
+            <button className="btn paid sm" disabled={busy} onClick={() => run({ action: "review_care", careId: k.id, approve: true })}>Approve {money(k.eligible, c.currency)}</button>
+            <button className="btn danger sm" disabled={busy} onClick={() => run({ action: "review_care", careId: k.id, approve: false })}>Reject</button>
+          </div>
+        </div>
+      ))}
+    </>
   );
 }
 
-function OrganizerPanel({ c, act }: { c: CampaignView; act: (b: Record<string, unknown>) => Promise<unknown> }) {
-  const [busy, setBusy] = useState(false);
+function OrganizerPanel({ c, act, onDone }: { c: CampaignView; act: (b: Record<string, unknown>) => Promise<unknown>; onDone: (c: CampaignView) => void }) {
+  const [busy, setBusy] = useState("");
+  const [text, setText] = useState("");
+  const [err, setErr] = useState("");
   const can = ["live", "needs_review", "bill_needs_review"].includes(c.status);
+  const onHold = c.status === "needs_review" || c.status === "bill_needs_review";
+  const capLeft = Math.max(0, Number(c.goal) * 0.1 - c.careCosts.filter((k) => k.status !== "held").reduce((t, k) => t + k.approved, 0));
+  const isMaya = c.docs.some((d) => d.filename === "maya-estimate.png");
+
+  async function upload(f: File) {
+    setBusy("receipt");
+    setErr("");
+    const fd = new FormData();
+    fd.append("receipt", f);
+    const r = await fetch(`/api/campaigns/${c.id}/receipt`, { method: "POST", body: fd });
+    const j = await r.json();
+    setBusy("");
+    if (!r.ok) { setErr(j.error); return; }
+    onDone(j);
+  }
+
   return (
-    <div className="card">
-      <h3>Your campaign</h3>
-      <p className="small">Share this page. Money raised can only be paid to {c.provider?.name}, against the final bill. You never need to handle it.</p>
-      {can && (
-        <button className="btn danger sm" style={{ marginTop: 12 }} disabled={busy} onClick={async () => { setBusy(true); try { await act({ action: "cancel", reason: "Cancelled by the family" }); } catch { /* shown */ } finally { setBusy(false); } }}>
-          {busy ? "Cancelling…" : "Cancel and release every pledge"}
-        </button>
+    <>
+      {onHold && (
+        <div className="card">
+          <h3>Respond to the review</h3>
+          {c.organizerResponse ? (
+            <p className="small">You responded. A reviewer will read it with the evidence. You can add more below.</p>
+          ) : (
+            <p className="small muted" style={{ marginBottom: 10 }}>Something flagged that you can explain? A mistake on a document, a new estimate on the way? Tell the reviewer.</p>
+          )}
+          <textarea rows={3} value={text} onChange={(e) => setText(e.target.value)} placeholder="e.g. The hospital re-issued the estimate; the billing office can confirm on +1 512 555 0142" aria-label="Your response" />
+          <button className="btn sm" style={{ marginTop: 10 }} disabled={!!busy || text.trim().length < 10} onClick={async () => { setBusy("respond"); try { await act({ action: "respond", text }); setText(""); } catch { /* shown */ } finally { setBusy(""); } }}>
+            {busy === "respond" ? "Sending…" : "Send to the reviewer"}
+          </button>
+        </div>
       )}
-    </div>
+      {(c.status === "live" || c.status === "bill_needs_review") && (
+        <div className="card">
+          <h3>Medicines and supplies</h3>
+          <p className="small muted" style={{ marginBottom: 10 }}>
+            Up to 10% of the goal ({money(Number(c.goal) * 0.1, c.currency)}) can cover verified pharmacy or supply receipts. It&apos;s paid to the pharmacy, not to you. {money(capLeft, c.currency)} left.
+          </p>
+          <div className="stack">
+            <input type="file" accept="image/png,image/jpeg,image/webp,application/pdf" aria-label="Receipt" onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); }} disabled={!!busy || capLeft <= 0} />
+            {isMaya && (
+              <button className="btn ghost sm" disabled={!!busy || capLeft <= 0} onClick={async () => { const b = await (await fetch("/samples/maya-pharmacy-receipt.png")).blob(); await upload(new File([b], "maya-pharmacy-receipt.png", { type: "image/png" })); }}>
+                Use the sample pharmacy receipt
+              </button>
+            )}
+            {busy === "receipt" && <span className="thinking"><span className="spinner" /> Checking the receipt</span>}
+            {err && <div className="error">{err}</div>}
+          </div>
+        </div>
+      )}
+      <div className="card">
+        <h3>Your campaign</h3>
+        <p className="small">Money raised can only be paid to {c.provider?.name} against the final bill, and to verified pharmacies for approved receipts. You never need to handle it.</p>
+        {can && (
+          <button className="btn danger sm" style={{ marginTop: 12 }} disabled={!!busy} onClick={async () => { setBusy("cancel"); try { await act({ action: "cancel", reason: "Cancelled by the family" }); } catch { /* shown */ } finally { setBusy(""); } }}>
+            {busy === "cancel" ? "Cancelling…" : "Cancel and release every pledge"}
+          </button>
+        )}
+      </div>
+    </>
+  );
+}
+
+function CareSection({ c, role }: { c: CampaignView; role: Role }) {
+  return (
+    <section className="section" aria-labelledby="care">
+      <h2 id="care">Medicines and supplies</h2>
+      <p className="tiny muted" style={{ marginBottom: 10 }}>Capped at 10% of the verified goal and paid directly to the verified pharmacy or supplier that issued the receipt.</p>
+      <div className="stack">
+        {c.careCosts.map((k) => (
+          <div key={k.id} className="card" style={{ padding: 16 }}>
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <strong>{k.issuer}</strong>
+              <span className={`pill ${k.status === "held" ? "warn" : "paid"}`}>{k.status === "held" ? "Held for review" : k.status === "paid" ? `Paid ${money(k.approved, c.currency)}` : `Approved ${money(k.approved, c.currency)}`}</span>
+            </div>
+            <p className="small" style={{ marginTop: 6 }}>{k.note}</p>
+            {k.checks.some((x) => x.status !== "pass") && <div style={{ marginTop: 10 }}><CheckList checks={k.checks.filter((x) => x.status !== "pass")} animate={false} role={role} /></div>}
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -486,13 +616,15 @@ function Settlement({ c, hosp }: { c: CampaignView; hosp: string }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16, alignItems: "start" }}>
         <div className="card">
           <div className="legend" style={{ marginTop: 0 }}>
-            <div><i style={{ background: "var(--paid)" }} /><span>Paid directly to {hosp}</span><b>{money(s.captured, c.currency)}</b></div>
+            {(s.payees?.length ? s.payees : [{ name: hosp, amount: s.captured }]).map((p) => (
+              <div key={p.name}><i style={{ background: "var(--paid)" }} /><span>Paid directly to {p.name}</span><b>{money(p.amount, c.currency)}</b></div>
+            ))}
             <div><i style={{ background: "var(--never-fill)" }} /><span>Never charged to donors</span><b>{money(s.neverCharged, c.currency)}</b></div>
             <div><i style={{ background: "var(--muted)" }} /><span>Paid to the family</span><b>{money(0, c.currency)}</b></div>
           </div>
           <p className="tiny muted" style={{ marginTop: 12 }}>
             Every donor paid the same {Math.round((Number(s.captured) / Math.max(0.01, Number(s.captured) + Number(s.neverCharged))) * 1000) / 10}% of their pledge.
-            {s.payoutBatchId && <> PayPal payout {s.payoutBatchId} ({s.payoutStatus?.toLowerCase()}).</>}
+            {s.direct ? <> Captured straight into the provider&apos;s PayPal account; Earmark never held the money.</> : s.payoutBatchId && <> Captured and paid out in one step: PayPal payout {s.payoutBatchId} ({s.payoutStatus?.toLowerCase()}).</>}
           </p>
         </div>
         {best && <Receipt donor={best.donorName} pledged={Number(best.pledged)} paid={Number(best.captured)} hospital={hosp} patient={c.patient.displayName} currency={c.currency} />}
