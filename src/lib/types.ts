@@ -55,7 +55,11 @@ export interface Extraction {
   tamperSignals: string[]; // visual anomalies the model noticed (fonts, alignment, overwrites)
   instructionsToReader: string; // any text that addresses an AI/reviewer (prompt injection)
   readerConfidence: number; // 0..1
+  /** Where key fields are printed, as [ymin, xmin, ymax, xmax] on a 0–1000 scale (for evidence boxes). */
+  evidence?: { field: EvidenceField; box: [number, number, number, number] }[];
 }
+
+export type EvidenceField = "total" | "documentNumber" | "documentDate" | "patientName" | "patientAge" | "patientDob" | "providerPhone" | "providerRegistrationNo" | "instructionsToReader";
 
 export interface Doc {
   id: string;
@@ -66,6 +70,7 @@ export interface Doc {
   size: number;
   uploadedAt: string;
   uploadedBy: Role;
+  phash?: string; // visual fingerprint (images only), catches re-saved and re-scanned copies
   extraction?: Extraction;
   readerModel?: string;
 }
@@ -204,6 +209,7 @@ export interface Campaign {
   billReview?: BillReview;
   careCosts: CareCost[];
   organizerResponse?: { text: string; at: string };
+  settlingSince?: string; // settlement claim (lock)
   protectedCopies?: number; // times this campaign's documents were caught being reused elsewhere
   settlement?: {
     payable: string;

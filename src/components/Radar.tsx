@@ -6,7 +6,7 @@ import ResetDemo from "./ResetDemo";
 type Item = {
   document: { kind: string; number: string; issuer: string };
   original: { campaignId: string; label: string; status: string; at: string };
-  copies: { campaignId: string; label: string; status: string; at: string; sameFile: boolean }[];
+  copies: { campaignId: string; label: string; status: string; at: string; sameFile: boolean; samePicture?: boolean }[];
 };
 
 const KIND: Record<string, string> = { estimate: "Estimate", identity: "Registration card", medical_note: "Clinical note", final_bill: "Final bill", receipt: "Receipt" };
@@ -68,7 +68,7 @@ export default function Radar() {
                 </li>
                 {it.copies.map((c) => (
                   <li key={c.campaignId} className="copy">
-                    <span className="tiny muted">{c.sameFile ? "Same file" : "Same document number"} uploaded {when(c.at)}</span>
+                    <span className="tiny muted">{c.sameFile ? "Same file" : c.samePicture ? "Re-saved copy of the same page" : "Same document number"} uploaded {when(c.at)}</span>
                     <div className="row" style={{ justifyContent: "space-between" }}>
                       <Link href={`/c/${c.campaignId}?role=reviewer`}>{c.label}</Link>
                       <span className={`pill ${STATUS[c.status]?.[1] ?? ""}`}>{STATUS[c.status]?.[0] ?? c.status}</span>

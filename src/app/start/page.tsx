@@ -132,6 +132,10 @@ export default function Start() {
           <label className="field">Your story<textarea rows={5} value={f.story} onChange={set("story")} placeholder="What happened, and what the money is for" />
             <span className="hint">Donors see this as your words. The amount comes from the verified documents, not from here.</span>
           </label>
+          <label className="consent">
+            <input type="checkbox" required />
+            <span>I have the patient&apos;s (or their guardian&apos;s) permission to share these documents with Earmark. Donors will see the checks and a first name and initial, never the documents, full name or record numbers.</span>
+          </label>
           {err && <div className="error" role="alert">{err}</div>}
           <div><button className="btn">Check documents and publish</button></div>
         </form>

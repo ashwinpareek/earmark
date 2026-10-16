@@ -1,3 +1,4 @@
+import { viewFor } from "@/lib/views";
 import { handle } from "@/lib/http";
 import { createCampaign, listCampaigns } from "@/lib/workflow";
 import { HttpError } from "@/lib/store";
@@ -39,7 +40,7 @@ export async function POST(req: Request) {
     }
     // Uploads of the bundled sample documents go to the visitor's private demo space.
     const usesSamples = files.some((f) => isSample(sha256(f.buf)));
-    return createCampaign({
+    const c = await createCampaign({
       space: usesSamples ? await ensureDemoSpace() : "main",
       organizer: { name, email, relationship: s("relationship") || "Family" },
       providerId: s("providerId"),
@@ -47,5 +48,6 @@ export async function POST(req: Request) {
       story: s("story").slice(0, 3000),
       files,
     });
+    return viewFor(c, "organizer");
   });
 }

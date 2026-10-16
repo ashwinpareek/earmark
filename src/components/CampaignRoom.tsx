@@ -6,6 +6,7 @@ import type { CampaignView } from "@/lib/views";
 import type { Check, Role, QA } from "@/lib/types";
 import PayPalHold from "./PayPalHold";
 import Receipt from "./Receipt";
+import EvidenceView from "./EvidenceView";
 
 type Status = { paypal: "sandbox" | "mock"; paypalClientId: string | null; ai: string; model: string };
 
@@ -114,6 +115,8 @@ export default function CampaignRoom({ id }: { id: string }) {
             <Verdict c={c} animate={firstLoad.current} />
             <CheckList checks={c.verification?.checks ?? []} animate={firstLoad.current} role={role} />
           </section>
+
+          <EvidenceView c={c} role={role} />
 
           {c.careCosts.length > 0 && <CareSection c={c} role={role} />}
 

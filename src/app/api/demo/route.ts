@@ -1,3 +1,4 @@
+import { viewFor } from "@/lib/views";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
@@ -42,7 +43,8 @@ async function fraud(space: string) {
   });
 }
 
-// A stranger copies a real family's campaign: same documents, different organizer.
+// A stranger copies a real family's campaign: Maya's estimate cropped and re-saved as a JPEG
+// (so its SHA-256 is different), plus her registration card as-is, under a different organizer.
 async function copycat(space: string) {
   if (!(await listCampaigns([space])).some((c) => c.docs.some((d) => d.filename === "maya-estimate.png"))) await honest(space);
   return createCampaign({
@@ -52,7 +54,7 @@ async function copycat(space: string) {
     title: "Please help little Maya pay for her surgery",
     story: "I'm raising money for Maya's surgery on behalf of her family. Every dollar helps!",
     files: [
-      { kind: "estimate", filename: "estimate.png", buf: await file("maya-estimate.png") },
+      { kind: "estimate", filename: "estimate.jpg", buf: await file("copycat-estimate.jpg") },
       { kind: "identity", filename: "id.png", buf: await file("maya-registration.png") },
     ],
   });
@@ -66,8 +68,8 @@ export async function POST(req: Request) {
     if (scenario === "honest") {
       // One genuine Maya per space: reopen it instead of making a "copy" that would be flagged.
       const existing = (await listCampaigns([space])).find((c) => c.docs.some((d) => d.filename === "maya-estimate.png"));
-      return existing ?? honest(space);
+      return viewFor(existing ?? (await honest(space)), "organizer");
     }
-    return scenario === "fraud" ? fraud(space) : copycat(space);
+    return viewFor(scenario === "fraud" ? await fraud(space) : await copycat(space), "organizer");
   });
 }

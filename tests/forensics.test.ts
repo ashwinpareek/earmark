@@ -12,7 +12,7 @@ delete process.env.OPENAI_API_KEY;
 delete process.env.GEMINI_API_KEY;
 
 const ON = new Date("2026-10-21T12:00:00Z");
-const S = samples as Record<string, { file: string; extraction: Extraction }>;
+const S = samples as unknown as Record<string, { file: string; extraction: Extraction }>;
 const byFile = (f: string) => {
   const [sha, v] = Object.entries(S).find(([, x]) => x.file === f)!;
   return { sha, e: v.extraction };

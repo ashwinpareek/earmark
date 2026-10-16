@@ -10,9 +10,12 @@ export interface PriorDoc {
   docId: string;
   sha256: string;
   fingerprint: string; // provider|documentNumber
+  phash?: string; // visual fingerprint
   patientKey: string;
   campaignLabel: string; // e.g. "Help Maya recover… (Maya R.)"
 }
+
+import { looksAlike, visualSimilarity } from "./phash";
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 export const patientKey = (name: string) => norm(name);
@@ -122,25 +125,32 @@ export function duplicateChecks(docs: Doc[], campaignId: string, prior: PriorDoc
     const sameFile = others.filter((p) => p.sha256 === d.sha256);
     const fp = e ? fingerprintOf(e) : "";
     const reused = fp ? others.filter((p) => p.fingerprint === fp && p.sha256 !== d.sha256) : [];
-    const camps = new Set([...sameFile, ...reused].map((p) => p.campaignId));
+    // A re-saved, re-scanned or cropped copy: different bytes, same picture.
+    const lookalike = others.filter((p) => p.sha256 !== d.sha256 && looksAlike(p.phash, d.phash));
+    const camps = new Set([...sameFile, ...reused, ...lookalike].map((p) => p.campaignId));
     if (!camps.size) continue;
     ids.push(d.id);
-    [...sameFile, ...reused].forEach((p) => refs.set(p.campaignId, p.campaignLabel));
+    [...sameFile, ...reused, ...lookalike].forEach((p) => refs.set(p.campaignId, p.campaignLabel));
     const fileCamps = new Set(sameFile.map((p) => p.campaignId));
+    const picCamps = new Set(lookalike.map((p) => p.campaignId).filter((x) => !fileCamps.has(x)));
     const numCamps = new Set(reused.map((p) => p.campaignId).filter((x) => !fileCamps.has(x)));
     const plural = (n: number) => `${n} other campaign${n > 1 ? "s" : ""}`;
     const parts: string[] = [];
     if (fileCamps.size) parts.push(`the ${labelOf(d)} is an exact copy of a file in ${plural(fileCamps.size)}`);
+    if (picCamps.size) {
+      const best = Math.max(...lookalike.filter((p) => picCamps.has(p.campaignId)).map((p) => visualSimilarity(p.phash, d.phash)));
+      parts.push(`${fileCamps.size ? "it" : `the ${labelOf(d)}`} is a re-saved or re-scanned copy of a page in ${plural(picCamps.size)} (${Math.round(best * 100)}% visual match)`);
+    }
     if (numCamps.size) {
       const otherPatient = reused.some((p) => numCamps.has(p.campaignId) && p.patientKey !== patientKey(e!.patientName));
-      parts.push(`${fileCamps.size ? "its number " : ""}${e!.documentNumber} ${fileCamps.size ? "also appears" : "already appears"} in ${plural(numCamps.size)}${otherPatient ? " for a different patient" : ""}`);
+      parts.push(`${fileCamps.size || picCamps.size ? "its number " : ""}${e!.documentNumber} ${fileCamps.size || picCamps.size ? "also appears" : "already appears"} in ${plural(numCamps.size)}${otherPatient ? " for a different patient" : ""}`);
     }
     hits.push(parts.join(", and "));
   }
   return [
     hits.length
       ? { id: "duplicate", label: "Documents not reused", status: "fail", detail: `Reused document: ${hits.join("; ")}.`, docIds: ids, source: "rule", refs: [...refs].map(([campaignId, label]) => ({ campaignId, label })) }
-      : { id: "duplicate", label: "Documents not reused", status: "pass", detail: "None of these documents or document numbers appear in any other campaign.", docIds: [], source: "rule" },
+      : { id: "duplicate", label: "Documents not reused", status: "pass", detail: "None of these documents, copies of them, or their document numbers appear in any other campaign.", docIds: [], source: "rule" },
   ];
 }
 
