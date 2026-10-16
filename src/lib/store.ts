@@ -15,6 +15,7 @@ export interface FingerprintEntry {
   docId: string;
   sha256: string;
   fingerprint: string;
+  phash?: string;
   patientKey: string;
   campaignLabel: string;
   docKind: string;

@@ -41,11 +41,11 @@ Open the app and work through the three demo campaigns on the home page, then th
 - the patient is "7" on the estimate, but the ID says born in 1991;
 - a near-invisible note tells the AI to approve it.
 
-Nobody can pledge. The family can respond, and a reviewer decides.
+Nobody can pledge. In the **Reviewer** view, **Where the problems are** draws a box over each printed value a check disagreed with and enlarges it; **X-ray** makes the hidden note readable. The family can respond, and a reviewer decides.
 
 **3. The copycat**
-- A stranger uploads Maya's *real* documents to raise money for themselves.
-- One check catches it: the files are an exact copy, and the radar links the two campaigns.
+- A stranger uploads Maya's *real* documents to raise money for themselves. The estimate is **cropped and re-saved as a JPEG**, so its bytes and SHA-256 are different.
+- One check still catches it: Earmark's **visual fingerprint** recognises the same page (98% match), the estimate number is reused, and the registration card is an exact copy. The radar links the campaigns.
 - Maya's page shows **"Protected: Earmark caught 2 copies of this campaign's documents."**
 
 **Rules never reject anyone.** A failed check *holds* a campaign with its evidence, the family can explain, and only a person can reject. A real patient is never turned away by a model or a regex.
@@ -68,7 +68,8 @@ Settlement (integer cents) ─► per-donor partial capture, final_capture=true 
 | Step | AI | Deterministic code |
 |---|---|---|
 | Read documents | **Document Reader**: reads photos, scans or PDFs and transcribes what's *printed* (never "fixes" numbers). It also reports tamper signals and copies any text that addresses a reviewer | Zod validation, tolerant parsing |
-| Verify a campaign | — | `forensics.ts`: provider vs registry, arithmetic to the cent, one patient across documents (name, age vs date of birth), reuse of a file or document number across *all* campaigns, dates, clinical support → live, or on hold with a risk level |
+| Verify a campaign | — | `forensics.ts`: provider vs registry, arithmetic to the cent, one patient across documents (name, age vs date of birth), reuse across *all* campaigns (same file, same page re-saved via `phash.ts`, or same document number), dates, clinical support → live, or on hold with a risk level |
+| Show the evidence | Reader also returns **where** each key field is printed (0–1000 boxes) | The UI boxes only the fields a failed rule names; the rule, not the box, decides |
 | Final bill | **Bill Line Classifier**: medical care for the verified treatment, or not | `reconcile.ts`: same rules, verified patient, line-by-line match to the estimate, covered growth > 15% → human review |
 | Care receipts | Same classifier | `care.ts`: verified issuer, patient, arithmetic, reuse, capped at 10% of the goal |
 | Move money | — | `settlement.ts`: largest-remainder allocation in integer cents. Everyone pays the same fraction, nobody is over-charged, and totals are exact (property-tested) |
@@ -115,6 +116,7 @@ Earmark supports two PayPal setups, chosen with `PAYEE_MODE`.
   - `PAYMENT.PAYOUTS-ITEM.*`, matched per item by `sender_item_id`
 
   For local runs with no public URL, **Check with PayPal now** reads each movement back from the API instead. Unverified webhooks are logged but can't confirm anything.
+- **Settled twice?** Settlement first claims the campaign atomically, so a double click or a second tab gets "already being settled". Every capture also carries a `PayPal-Request-Id`, so even a retried request can't charge twice.
 - **The AI is down or out of quota?** AI calls time out after 45s. The bundled sample documents fall back to their answer key, bill lines fall back to keyword rules, and Q&A answers from verified facts. Only brand-new uploads need the AI.
 
 ### Hosted demo for judges
@@ -127,7 +129,10 @@ Earmark supports two PayPal setups, chosen with `PAYEE_MODE`.
 ### Honest limits
 
 - **Hold window:** PayPal holds an authorization for up to **29 days**, with a 3-day honor period. That fits urgent treatment. Longer treatments would settle bill by bill, renew holds by reauthorizing, or use PayPal's delayed disbursement.
+- **After the 3-day honor period, a capture isn't guaranteed.** PayPal tries to honour it until day 29 but the donor's funds may no longer be available. That's why Earmark re-checks every hold before collecting and reports any shortfall instead of assuming the money is there.
 - **Partial captures** must be enabled on the PayPal account that captures.
+- **Payouts need an eligible sender.** PayPal must enable Payouts for the business account, and sending Payouts isn't available from every country (an India-based business can receive but not send them). Direct mode avoids Payouts entirely.
+- **What the forensics can't catch.** A forger who edits a line *and* the total consistently, on a real hospital's letterhead, passes the estimate checks (see the attack suite below). The final bill comes from the hospital itself, and only the bill decides what is paid. The visual fingerprint catches re-saved, re-scanned and cropped copies, not a phone photo taken at a steep angle.
 - **Providers must accept PayPal.** The registry covers hospitals, clinics, pharmacies and medical-supply stores. Bank-transfer payouts to providers without PayPal are future work.
 - **No login in the demo:** roles are switched in the UI, and the provider registry is a fixed list of fictional providers.
 
@@ -174,13 +179,45 @@ npm run dev               # http://localhost:3000
 npm test
 ```
 
-There are 25 tests:
+There are 27 tests:
 - **Settlement maths:** exact totals, fair shares, rounding, and 300 randomised invariant cases.
 - **The rules on the real sample documents:** genuine passes; doctored is held for exactly the right reasons; the copycat is caught and linked to the original.
 - **Care receipts:** balloon excluded, unverified shop held.
 - **Bill reconciliation.**
 - **The AI code paths, with a stubbed model**, including quota-exhausted fallbacks.
 - **Lapsed holds** re-spread across the other pledges, and shortfalls reported.
+- **An attack suite** (`tests/attacks.test.ts`): Maya's documents forged one way at a time, plus honest controls that must not be held.
+
+| Case | Scenario | Outcome | Checks raised |
+|---|---|---|---|
+| Attack | Printed total inflated, line items left alone | HELD | arithmetic |
+| Attack | Wrong hospital phone and licence (fake letterhead) | HELD | provider_contact |
+| Attack | Estimate from a hospital other than the one chosen | HELD | provider_match |
+| Attack | Child's age on estimate, adult's date of birth on ID | HELD | identity |
+| Attack | Registration card for a different patient | HELD | identity |
+| Attack | Exact copy of another campaign's files | HELD | duplicate |
+| Attack | Another campaign's page, cropped and re-saved, new number | HELD | duplicate (visual), identity |
+| Attack | Borrowed estimate number, new patient | HELD | duplicate |
+| Attack | Hidden text telling the AI to approve | HELD | injection |
+| Attack | Estimate dated in the future | HELD | dates |
+| Attack | Consistent edit: one line and the total raised together | **passes** (known limit; the hospital's bill decides payment) | — |
+| Control | Maya's genuine documents | passes | — |
+| Control | Same family re-opens its own campaign | passes | — |
+| Control | Different family, same hospital and template | live with a note | clinical (no doctor's note) |
+| Control | No clinical note uploaded | live with a note | clinical |
+
+**Attacks held: 10 of 11. Honest controls wrongly held: 0 of 4.**
+
+## How Earmark differs
+
+| | Charges donors | Where the money goes | Checks |
+|---|---|---|---|
+| GoFundMe | Up front | The organizer's or beneficiary's bank | Mostly after a complaint; refunds via its guarantee |
+| Milaap, Ketto | Up front | Some campaigns pay the hospital directly; surplus stays on the platform | Staff review of documents |
+| Watsi | Up front | Vetted partner hospitals | Manual vetting of a closed partner network |
+| **Earmark** | **Only the exact share of the verified bill, at settlement** | **Verified providers' registered PayPal accounts. Families: $0** | **Automated, evidence-backed checks before launch and on the final bill; cross-campaign reuse radar; humans decide holds** |
+
+Earmark can also run as a layer under an existing platform: verification, holds and settlement, with the platform keeping its donors and pages.
 
 ## Project map
 

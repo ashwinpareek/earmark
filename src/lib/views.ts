@@ -8,7 +8,7 @@ import { provider } from "./providers";
 
 export function viewFor(c: Campaign, role: Role) {
   const p = provider(c.providerId);
-  const base = { ...c, provider: p ? { id: p.id, name: p.name, city: p.city, country: p.country, verifiedSince: p.verifiedSince, registrationNo: p.registrationNo } : null };
+  const base = { ...c, provider: p ? { id: p.id, name: p.name, city: p.city, country: p.country, verifiedSince: p.verifiedSince, registrationNo: p.registrationNo } : null, docs: c.docs.map(({ phash: _p, ...d }) => d) };
   if (role !== "donor") return base;
   const full = c.docs.find((d) => d.kind === "estimate")?.extraction?.patientName ?? "";
   const scrub = (s: string) => (full ? s.split(full).join(c.patient.displayName) : s);

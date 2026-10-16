@@ -2,7 +2,7 @@
   "name": "earmark",
   "version": "1.0.0",
   "private": true,
-  "description": "Earmark \u2014 donations that can only pay the bill. Verified medical fundraising on PayPal.",
+  "description": "Earmark — donations that can only pay the bill. Verified medical fundraising on PayPal.",
   "license": "MIT",
   "scripts": {
     "dev": "next dev -p 3000",
@@ -25,6 +25,7 @@
     "pdf-lib": "^1.17.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "sharp": "^0.35.5",
     "zod": "^4.6.7"
   },
   "devDependencies": {

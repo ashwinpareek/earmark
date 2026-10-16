@@ -4,6 +4,7 @@ import { isCampaignPayee, provider as getProvider } from "./providers";
 import { readFile, storeFile } from "./files";
 import { readDocument } from "./reader";
 import { fingerprintOf, patientKey, verifyCampaign, type PriorDoc } from "./forensics";
+import { looksAlike, visualHash } from "./phash";
 import { reviewBill } from "./reconcile";
 import { careRoom, reviewReceipt } from "./care";
 import { planCaptures } from "./settlement";
@@ -29,13 +30,13 @@ function expect(c: Campaign, ...ok: Campaign["status"][]) {
 const labelFor = (c: Pick<Campaign, "title" | "patient">) => `${c.title} (${c.patient.displayName})`;
 
 async function priorDocs(space: string): Promise<PriorDoc[]> {
-  return (await fingerprints(space)).map((f) => ({ campaignId: f.campaignId, docId: f.docId, sha256: f.sha256, fingerprint: f.fingerprint, patientKey: f.patientKey, campaignLabel: f.campaignLabel }));
+  return (await fingerprints(space)).map((f) => ({ campaignId: f.campaignId, docId: f.docId, sha256: f.sha256, fingerprint: f.fingerprint, phash: f.phash, patientKey: f.patientKey, campaignLabel: f.campaignLabel }));
 }
 
 async function remember(c: Campaign, docs: Doc[]) {
   await addFingerprints(
     docs.filter((d) => d.extraction).map((d) => ({
-      campaignId: c.id, docId: d.id, sha256: d.sha256, fingerprint: fingerprintOf(d.extraction!), patientKey: patientKey(d.extraction!.patientName),
+      campaignId: c.id, docId: d.id, sha256: d.sha256, phash: d.phash, fingerprint: fingerprintOf(d.extraction!), patientKey: patientKey(d.extraction!.patientName),
       campaignLabel: labelFor(c), docKind: d.kind, docNumber: d.extraction!.documentNumber, issuer: d.extraction!.providerName, space: spaceOf(c),
     })),
   );
@@ -55,7 +56,8 @@ async function alertOriginals(from: Campaign, refs: { campaignId: string }[]) {
 
 async function ingest(kind: DocKind, filename: string, buf: Buffer, uploadedBy: Doc["uploadedBy"]): Promise<Doc> {
   const stored = await storeFile(buf);
-  return { id: uid("doc"), kind, filename: filename.slice(0, 120) || `${kind}`, mime: stored.mime, sha256: stored.sha256, size: stored.size, uploadedAt: nowIso(), uploadedBy };
+  const phash = await visualHash(buf, stored.mime);
+  return { id: uid("doc"), kind, filename: filename.slice(0, 120) || `${kind}`, mime: stored.mime, sha256: stored.sha256, size: stored.size, uploadedAt: nowIso(), uploadedBy, ...(phash ? { phash } : {}) };
 }
 
 async function read(doc: Doc): Promise<Doc> {
@@ -360,9 +362,18 @@ export async function reviewerDecideBill(id: string, approve: boolean, note: str
 }
 
 export async function settle(id: string): Promise<Campaign> {
-  const c = await getCampaign(id);
-  if (!c) throw new HttpError(404, "Campaign not found");
-  expect(c, "settling");
+  // Claim the settlement atomically: a second call (double click, retry, two tabs) finds the
+  // claim and stops, so no hold is ever captured twice. PayPal-Request-Id makes each capture
+  // idempotent at PayPal as well.
+  let claimed = false;
+  const c = await updateCampaign(id, (cc) => {
+    expect(cc, "settling");
+    if (cc.settlingSince && Date.now() - Date.parse(cc.settlingSince) < 10 * 60_000) return structuredClone(cc);
+    cc.settlingSince = nowIso();
+    claimed = true;
+    return structuredClone(cc);
+  });
+  if (!claimed) throw new HttpError(409, "This bill is already being settled.");
   const hosp = needProvider(c.providerId);
   const direct = paypal.payeeMode() === "direct";
 
@@ -484,6 +495,7 @@ export async function settle(id: string): Promise<Campaign> {
     if (payout) for (const p of payees) cc.movements.push({ id: uid("mv"), type: "payout", amount: fromCents(p.cents), currency: cc.currency, paypalId: payout.batchId, status: payout.status, at: nowIso(), note: `Paid directly to ${p.name}`, payee: p.name, ref: p.ref });
     for (const k of cc.careCosts) if (care.some((x) => x.id === k.id)) k.status = "paid";
     cc.status = "settled";
+    delete cc.settlingSince;
     const who = payees.map((p) => `${fmtMoney(fromCents(p.cents), cc.currency)} to ${p.name}`).join(" and ");
     addEvent(cc, {
       actor: "paypal",
@@ -616,8 +628,15 @@ export async function reuseRadar(space: string) {
   const fps = await fingerprints(space);
   const camps = new Map((await listCampaigns([space])).map((c) => [c.id, c]));
   const groups = new Map<string, typeof fps>();
+  const pics: { phash: string; key: string }[] = [];
   for (const f of fps) {
     const keys = [`sha:${f.sha256}`, ...(f.fingerprint ? [`fp:${f.fingerprint}`] : [])];
+    if (f.phash) {
+      // Re-saved copies join the group of the page they look like.
+      const near = pics.find((p) => looksAlike(p.phash, f.phash));
+      keys.push(near?.key ?? `pic:${f.docId}`);
+      if (!near) pics.push({ phash: f.phash, key: `pic:${f.docId}` });
+    }
     const existing = keys.map((k) => groups.get(k)).find(Boolean);
     const g = existing ?? [];
     if (!g.some((x) => x.docId === f.docId)) g.push(f);
@@ -637,7 +656,7 @@ export async function reuseRadar(space: string) {
       original: { campaignId: first.campaignId, label: first.campaignLabel, status: camps.get(first.campaignId)?.status ?? "unknown", at: first.at },
       copies: ids.filter((x) => x !== first.campaignId).map((cid) => {
         const f = sorted.find((x) => x.campaignId === cid)!;
-        return { campaignId: cid, label: f.campaignLabel, status: camps.get(cid)?.status ?? "unknown", at: f.at, sameFile: f.sha256 === first.sha256 };
+        return { campaignId: cid, label: f.campaignLabel, status: camps.get(cid)?.status ?? "unknown", at: f.at, sameFile: f.sha256 === first.sha256, samePicture: f.sha256 !== first.sha256 && looksAlike(f.phash, first.phash) };
       }),
     });
   }

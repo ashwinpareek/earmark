@@ -9,3 +9,4 @@ data/*.json
 next-env.d.ts
 tsconfig.tsbuildinfo
 public/samples/*.tmp
+data/
