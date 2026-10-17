@@ -16,6 +16,7 @@ export interface PriorDoc {
 }
 
 import { looksAlike, visualSimilarity } from "./phash";
+import { hospitalConfirmation, type HospitalRecord } from "./hospital";
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 export const patientKey = (name: string) => norm(name);
@@ -194,7 +195,7 @@ export function clinicalCheck(docs: Doc[]): Check {
 }
 
 /** Run every campaign-level check and decide. */
-export function verifyCampaign(args: { campaignId: string; docs: Doc[]; provider: Provider; prior: PriorDoc[]; on?: Date }): VerificationReport {
+export function verifyCampaign(args: { campaignId: string; docs: Doc[]; provider: Provider; prior: PriorDoc[]; on?: Date; records?: HospitalRecord[] }): VerificationReport {
   const on = args.on ?? new Date();
   const est = args.docs.find((d) => d.kind === "estimate");
   const checks: Check[] = [];
@@ -205,6 +206,7 @@ export function verifyCampaign(args: { campaignId: string; docs: Doc[]; provider
   const e = est.extraction;
   checks.push(...providerChecks(e, args.provider, est.id));
   checks.push(arithmeticCheck(e, est.id));
+  checks.push(hospitalConfirmation(e, args.provider, est.id, args.records));
   checks.push(identityCheck(args.docs, on));
   checks.push(...duplicateChecks(args.docs, args.campaignId, args.prior));
   checks.push(datesCheck(e, est.id, on));
@@ -221,7 +223,7 @@ export function verifyCampaign(args: { campaignId: string; docs: Doc[]; provider
   return decide(checks, arithmeticOk && e.total ? e.total : lineSum);
 }
 
-const HIGH_RISK = new Set(["duplicate", "injection", "provider_match", "identity"]);
+const HIGH_RISK = new Set(["duplicate", "injection", "provider_match", "identity", "hospital_confirmed"]);
 
 /** Rules never reject on their own. A failed check HOLDS the campaign for a person to review,
  *  with the evidence; the family can respond; only a human reviewer can reject. Real patients

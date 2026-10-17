@@ -3,6 +3,7 @@ import type { Campaign, Doc, DocKind, Donation, Extraction } from "./types";
 import { isCampaignPayee, provider as getProvider } from "./providers";
 import { readFile, storeFile } from "./files";
 import { readDocument } from "./reader";
+import { investigatorNotes } from "./agents";
 import { fingerprintOf, patientKey, verifyCampaign, type PriorDoc } from "./forensics";
 import { looksAlike, visualHash } from "./phash";
 import { reviewBill } from "./reconcile";
@@ -60,9 +61,14 @@ async function ingest(kind: DocKind, filename: string, buf: Buffer, uploadedBy: 
   return { id: uid("doc"), kind, filename: filename.slice(0, 120) || `${kind}`, mime: stored.mime, sha256: stored.sha256, size: stored.size, uploadedAt: nowIso(), uploadedBy, ...(phash ? { phash } : {}) };
 }
 
+// Forgery Lab: what the visitor edited, used only if the AI can't read the image (see lab.ts).
+const labFallbacks = new Map<string, Extraction>();
+
 async function read(doc: Doc): Promise<Doc> {
   const buf = await readFile(doc.sha256, doc.mime);
-  const { extraction, model } = await readDocument(doc, buf);
+  const fallback = labFallbacks.get(doc.id);
+  labFallbacks.delete(doc.id);
+  const { extraction, model } = await readDocument(doc, buf, { fallback });
   return { ...doc, extraction, readerModel: model };
 }
 
@@ -93,7 +99,8 @@ export interface NewCampaign {
   story: string;
   currency?: string;
   space?: string;
-  files: { kind: DocKind; filename: string; buf: Buffer }[];
+  files: { kind: DocKind; filename: string; buf: Buffer; fallback?: Extraction }[];
+  lab?: boolean;
 }
 
 export async function createCampaign(input: NewCampaign): Promise<Campaign> {
@@ -101,6 +108,7 @@ export async function createCampaign(input: NewCampaign): Promise<Campaign> {
   if (!isCampaignPayee(p)) throw new HttpError(400, "Campaigns raise money for a hospital or clinic");
   if (!input.files.some((f) => f.kind === "estimate")) throw new HttpError(400, "Upload the hospital's cost estimate");
   const docs = await Promise.all(input.files.map((f) => ingest(f.kind, f.filename, f.buf, "organizer")));
+  input.files.forEach((f, i) => f.fallback && labFallbacks.set(docs[i].id, f.fallback));
   const c: Campaign = {
     id: uid("cmp"),
     space: input.space ?? "main",
@@ -119,6 +127,7 @@ export async function createCampaign(input: NewCampaign): Promise<Campaign> {
     careCosts: [],
     movements: [],
     events: [],
+    ...(input.lab ? { lab: true } : {}),
   };
   addEvent(c, { actor: "organizer", kind: "campaign.created", message: `${input.organizer.name} started the campaign and uploaded ${docs.length} document${docs.length > 1 ? "s" : ""}.` });
   await saveCampaign(c);
@@ -140,6 +149,7 @@ export async function verify(id: string): Promise<Campaign> {
     throw e;
   }
   const report = verifyCampaign({ campaignId: id, docs, provider: p, prior: await priorDocs(spaceOf(c0)) });
+  report.notes = await investigatorNotes(report.checks, `Campaign for a patient at ${p.name}. Verdict: ${report.decision} (${report.risk} risk).`);
   const est = docs.find((d) => d.kind === "estimate")?.extraction;
   const updated = await updateCampaign(id, (c) => {
     c.docs = docs;
@@ -246,6 +256,7 @@ export async function confirmDonation(id: string, donationId: string, orderId: s
     d.status = "held";
     d.authorizationId = auth.authorizationId;
     d.authorizationExpiresAt = auth.expiresAt;
+    d.authorizedAt = nowIso();
     cc.movements.push({ id: uid("mv"), type: "hold", amount: d.pledged, currency: cc.currency, paypalId: auth.authorizationId, status: auth.status, donationId: d.id, at: nowIso(), note: "Held on the donor's PayPal, not charged" });
     addEvent(cc, { actor: "paypal", kind: "donation.held", message: `${d.anonymous ? "An anonymous donor" : d.donorName} pledged ${fmtMoney(d.pledged, cc.currency)}. It's held on their PayPal, not charged.` });
     return cc;
@@ -661,6 +672,65 @@ export async function reuseRadar(space: string) {
     });
   }
   return out.sort((a, b) => (b.copies.at(-1)?.at ?? "").localeCompare(a.copies.at(-1)?.at ?? ""));
+}
+
+// ─── Hold monitor (daily) ─────────────────────────────────────────
+// A PayPal authorization is honoured for 3 days and lives for 29. Once a day this renews holds
+// that are past the honor period (PayPal only allows that from day 4), and marks holds that
+// can no longer be collected, so the campaign page and the settlement step tell the truth.
+
+const DAY = 864e5;
+export const HONOR_DAYS = 3;
+export const HOLD_DAYS = 29;
+
+export async function monitorHolds(now = new Date()) {
+  const report = { checked: 0, renewed: 0, lapsed: 0, renewFailed: 0 };
+  for (const c of await listCampaigns()) {
+    if (!["live", "bill_review", "bill_needs_review"].includes(c.status)) continue;
+    for (const d of c.donations.filter((x) => x.status === "held" && x.authorizationId)) {
+      report.checked++;
+      const age = (now.getTime() - Date.parse(d.authorizedAt ?? d.createdAt)) / DAY;
+      const expired = age >= HOLD_DAYS || (d.authorizationExpiresAt && Date.parse(d.authorizationExpiresAt) <= now.getTime());
+      let usable = !expired;
+      if (usable) {
+        try { usable = (await paypal.getAuthorization(d.authorizationId!, d.authorizationExpiresAt)).usable; } catch { /* keep: settlement re-checks */ }
+      }
+      if (!usable) {
+        report.lapsed++;
+        await updateCampaign(c.id, (cc) => {
+          const x = cc.donations.find((y) => y.id === d.id)!;
+          x.status = "lapsed";
+          x.problem = "the PayPal hold expired before the bill arrived";
+          x.captured = "0.00";
+          x.neverCharged = x.pledged;
+          addEvent(cc, { actor: "paypal", kind: "hold.lapsed", message: `A ${fmtMoney(x.pledged, cc.currency)} pledge's PayPal hold expired before the hospital's bill arrived. The donor was never charged and can pledge again.` });
+        });
+        continue;
+      }
+      if (age > HONOR_DAYS && !d.reauthorizedAt) {
+        try {
+          const r = await paypal.reauthorize(d.authorizationId!, d.pledged, c.currency);
+          report.renewed++;
+          await updateCampaign(c.id, (cc) => {
+            const x = cc.donations.find((y) => y.id === d.id)!;
+            const old = x.authorizationId!;
+            x.authorizationId = r.authorizationId;
+            x.reauthorizedAt = now.toISOString();
+            if (r.expiresAt) x.authorizationExpiresAt = r.expiresAt;
+            cc.movements.push({ id: uid("mv"), type: "hold", amount: x.pledged, currency: cc.currency, paypalId: r.authorizationId, status: r.status, donationId: x.id, at: nowIso(), note: `Hold renewed after PayPal's 3-day honor period (replaces ${old})` });
+            addEvent(cc, { actor: "paypal", kind: "hold.renewed", message: `Renewed a ${fmtMoney(x.pledged, cc.currency)} PayPal hold after its 3-day honor period, so it can still be collected when the bill arrives. Still not charged.` });
+          });
+        } catch (e) {
+          report.renewFailed++;
+          await updateCampaign(c.id, (cc) => {
+            const x = cc.donations.find((y) => y.id === d.id)!;
+            x.problem = `couldn't renew the hold: ${(e as Error).message.slice(0, 120)}`;
+          });
+        }
+      }
+    }
+  }
+  return report;
 }
 
 export { listCampaigns, tx };

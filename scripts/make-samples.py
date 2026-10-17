@@ -71,7 +71,10 @@ def kv(d, x, y, k, v, kw=210):
     d.text((x + kw, y), v, font=MED(20), fill=INK)
     return nb(d.textbbox((x + kw, y), v, font=MED(20)))
 
+LINE_BOXES = []
+
 def table(d, y, rows, total_label, total, amount_font=None, total_font=None, extra=None):
+    LINE_BOXES.clear()
     d.text((80, y), "Description", font=BOLD(20), fill=INK)
     d.text((820, y), "Qty", font=BOLD(20), fill=INK)
     d.text((W - 80 - d.textlength("Amount (USD)", font=BOLD(20)), y), "Amount (USD)", font=BOLD(20), fill=INK)
@@ -84,6 +87,7 @@ def table(d, y, rows, total_label, total, amount_font=None, total_font=None, ext
         s = money(amt)
         fnt = amount_font or REG(21)
         d.text((W - 80 - d.textlength(s, font=fnt), y), s, font=fnt, fill=INK)
+        LINE_BOXES.append(d.textbbox((W - 80 - d.textlength(s, font=fnt), y), s, font=fnt))
         y += 44
     d.line((80, y, W - 80, y), fill=RULE, width=2)
     y += 18
@@ -170,6 +174,9 @@ kv(d, 80, 480, "Procedure", "Laparoscopic appendectomy (emergency)")
 kv(d, 80, 516, "Diagnosis", "Acute appendicitis (ICD-10 K35.80)")
 y, b_total = table(d, 590, maya_est_rows, "Patient responsibility", 2400.00,
           extra=[("Gross charges", 11850.00), ("Insurer pre-authorised", 9450.00)])
+maya_line_px = list(LINE_BOXES)
+maya_total_px = d.textbbox((W - 80 - d.textlength(money(2400.00), font=BOLD(26)), y - 60 - 2), money(2400.00), font=BOLD(26))
+maya_footer_y = y + 42
 d.text((80, y + 10), "This is an estimate, not a bill. Final charges depend on the care provided.", font=REG(18), fill=MUTED)
 d.text((80, y + 40), "Payments: patient accounts office, quoting the estimate number.", font=REG(18), fill=MUTED)
 signature(d, 80, y + 120, "Dana Whitfield", "Patient Financial Services")
@@ -182,6 +189,26 @@ record(p, base(evidence=maya_est_ev, docType="estimate", providerName=RIVERSIDE[
                procedure="Laparoscopic appendectomy (emergency)", diagnosis="Acute appendicitis (K35.80)",
                lineItems=[dict(description=r[0], quantity=r[1], amount=r[2]) for r in maya_est_rows],
                subtotal=2400.00, insuranceCovered=9450.00, total=2400.00))
+
+# Forgery Lab layout: where each editable value sits on Maya's estimate (pixels, 1240x1754),
+# with the font it was printed in, so the in-browser forger can paint over it.
+def px(b):
+    return [round(b[0]), round(b[1]), round(b[2]), round(b[3])]
+def kvbox(x, y, v, kw):
+    return px(d.textbbox((x + kw, y), v, font=MED(20)))
+lab = {"width": W, "height": H, "background": [253, 253, 251], "ink": list(INK), "fields": [
+    {"id": "total", "label": "Total owed", "value": money(2400.00), "box": px(maya_total_px), "font": "700 26px", "align": "right", "kind": "money"},
+    *[{"id": f"line{i}", "label": maya_est_rows[i][0], "value": money(maya_est_rows[i][2]), "box": px(b), "font": "400 21px", "align": "right", "kind": "money"} for i, b in enumerate(maya_line_px)],
+    {"id": "patientName", "label": "Patient name", "value": "Maya Rodriguez", "box": kvbox(660, 350, "Maya Rodriguez", 130), "font": "500 20px", "align": "left", "kind": "text"},
+    {"id": "ageDob", "label": "Age / date of birth", "value": "9  ·  04 Mar 2017", "box": kvbox(660, 386, "9  ·  04 Mar 2017", 130), "font": "500 20px", "align": "left", "kind": "text"},
+    {"id": "documentNumber", "label": "Estimate number", "value": "EST-2026-08812", "box": kvbox(80, 350, "EST-2026-08812", 210), "font": "500 20px", "align": "left", "kind": "text"},
+    {"id": "documentDate", "label": "Date issued", "value": "2 October 2026", "box": kvbox(80, 386, "2 October 2026", 210), "font": "500 20px", "align": "left", "kind": "text"},
+    {"id": "providerPhone", "label": "Hospital phone", "value": RIVERSIDE["phone"], "box": [round(v) for v in [b_phone[1] * W / 1000, b_phone[0] * H / 1000, b_phone[3] * W / 1000, b_phone[2] * H / 1000]], "font": "400 19px", "align": "left", "kind": "text", "color": list(MUTED)},
+    {"id": "providerRegistrationNo", "label": "Hospital licence", "value": RIVERSIDE["reg"], "box": [round(v) for v in [b_reg[1] * W / 1000, b_reg[0] * H / 1000, b_reg[3] * W / 1000, b_reg[2] * H / 1000]], "font": "400 19px", "align": "left", "kind": "text", "color": list(MUTED)},
+], "hidden": {"x": 80, "y": maya_footer_y + 40, "font": "400 13px", "color": [244, 244, 241]},
+   "crop": {"x0": 18, "y0": 25, "x1": W - 30, "y1": H - 12, "scale": 0.83}}
+with open(os.path.join(ROOT, "src", "lib", "lab-layout.json"), "w") as f:
+    json.dump(lab, f, indent=2)
 
 # The copycat's "own" estimate: Maya's page, cropped and re-saved as a JPEG. Different bytes,
 # different SHA-256 — only the visual fingerprint (and the reused number) give it away.

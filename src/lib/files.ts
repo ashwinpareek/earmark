@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { DATA_DIR } from "./store";
+import { getFile, putFile } from "./pg";
 
 // Uploaded documents are stored by content hash. Medical documents are sensitive:
 // they are never served on the public campaign page, only to the organizer, the hospital
@@ -34,11 +35,20 @@ export async function storeFile(buf: Buffer): Promise<{ sha256: string; mime: st
   const hash = sha256(buf);
   await fs.mkdir(DIR, { recursive: true });
   const p = path.join(DIR, `${hash}.${extFor(mime)}`);
-  await fs.writeFile(p, buf);
+  await fs.writeFile(p, buf); // local cache (and the only copy without Postgres)
+  await putFile(hash, mime, buf);
   return { sha256: hash, mime, size: buf.length };
 }
 
 export async function readFile(hash: string, mime: string): Promise<Buffer> {
   if (!/^[a-f0-9]{64}$/.test(hash)) throw new Error("bad hash");
-  return fs.readFile(path.join(DIR, `${hash}.${extFor(mime)}`));
+  const p = path.join(DIR, `${hash}.${extFor(mime)}`);
+  try {
+    return await fs.readFile(p);
+  } catch (e) {
+    const fromDb = await getFile(hash); // after a restart the disk is empty; Postgres isn't
+    if (!fromDb) throw e;
+    await fs.mkdir(DIR, { recursive: true }).then(() => fs.writeFile(p, fromDb)).catch(() => undefined);
+    return fromDb;
+  }
 }

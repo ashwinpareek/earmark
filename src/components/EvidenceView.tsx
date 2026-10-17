@@ -15,6 +15,7 @@ const FIELDS: Record<string, EvidenceField[]> = {
   identity: ["patientAge", "patientDob"],
   bill_patient: ["patientName", "patientDob"],
   duplicate: ["documentNumber"],
+  hospital_confirmed: ["documentNumber", "patientName", "total"],
   injection: ["instructionsToReader"],
   dates: ["documentDate"],
 };

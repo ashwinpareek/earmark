@@ -1,12 +1,68 @@
 "use client";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { studioTheme, type AgDataSourcesDefinition, type AgFieldDefinition, type AgFormat, type AgPageState, type AgReportState, type AgWidgetLayoutState } from "ag-studio";
+import {
+  AgStudioAiModule, AgStudioModuleRegistry, createAiHarness, studioTheme,
+  type AgAiEvent, type AgAiOutputItem, type AgDataSourcesDefinition, type AgFieldDefinition, type AgFormat, type AgLlmAdapter, type AgLlmResponse, type AgPageState, type AgReportState, type AgWidgetLayoutState,
+} from "ag-studio";
 import { AgStudio, AgStudioProvider } from "ag-studio-react";
 
 // Earmark's public transparency ledger, built on AG Studio. Anyone can see, for every
 // campaign: what was pledged, what the verified bill needed, what each donor paid, what was
 // never charged, what reached the hospital — and every check that passed or failed.
+
+AgStudioModuleRegistry.registerModules([AgStudioAiModule]);
+
+// "Ask the ledger": AG Studio's own agents, running in the browser, with each turn sent to our
+// server (/api/studio-ai) so the AI key never reaches the page. The agents' tools only change this
+// dashboard (filters, charts, pages); they have no way to touch campaigns or money.
+const ledgerAdapter: AgLlmAdapter = {
+  executeTurn(request, options) {
+    const complete: Promise<AgLlmResponse> = fetch("/api/studio-ai", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(request),
+      signal: options?.signal,
+    })
+      .then(async (r) => {
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+        return j as AgLlmResponse;
+      })
+      .catch((e: Error) => ({
+        id: `err_${Date.now()}`,
+        createdAt: Date.now(),
+        status: "completed" as const,
+        output: [{ id: `msg_${Date.now()}`, kind: "output", type: "message", role: "assistant", status: "completed", content: [{ type: "text", text: `Sorry, I couldn't answer that: ${e.message}`, annotations: [] }] } as AgAiOutputItem],
+      }));
+    const stream = {
+      async *[Symbol.asyncIterator](): AsyncIterator<AgAiEvent> {
+        const res = await complete;
+        for (const item of res.output) {
+          if (item.type === "message") {
+            const text = item.content.map((c) => (c.type === "text" ? c.text : c.refusal)).join("");
+            yield { type: "TEXT_MESSAGE_START", messageId: item.id, role: "assistant" };
+            yield { type: "TEXT_MESSAGE_CONTENT", messageId: item.id, delta: text };
+            yield { type: "TEXT_MESSAGE_END", messageId: item.id };
+          } else if (item.type === "function_call") {
+            yield { type: "TOOL_CALL_START", toolCallId: item.callId, toolCallName: item.name };
+            yield { type: "TOOL_CALL_ARGS", toolCallId: item.callId, delta: item.arguments };
+            yield { type: "TOOL_CALL_END", toolCallId: item.callId };
+          }
+        }
+      },
+    } as unknown as AgLlmResponseHandlerStream;
+    return { stream, complete };
+  },
+};
+type AgLlmResponseHandlerStream = ReturnType<AgLlmAdapter["executeTurn"]>["stream"];
+
+const PROMPTS = [
+  { label: "Which campaigns are on hold, and why?", prompt: "Which campaigns are on hold, and which checks failed for each? Answer from the ledger." },
+  { label: "How much was never charged?", prompt: "Across all campaigns, how much did donors pledge, how much was charged, and how much was never charged? Then add a KPI for never charged." },
+  { label: "Prove families got $0", prompt: "Show me, from the movements table, every payout and who received it. Did any money go to a family?" },
+  { label: "Chart failed checks", prompt: "Add a bar chart of failed checks by check name to this page." },
+];
 
 type LedgerData = {
   asOf: string;
@@ -189,7 +245,8 @@ const theme = studioTheme.withParams({
 
 const noSub = () => () => {};
 
-export default function Ledger({ licenseKey }: { licenseKey?: string }) {
+export default function Ledger({ licenseKey, aiEnabled }: { licenseKey?: string; aiEnabled?: boolean }) {
+  const [ask, setAsk] = useState(false);
   const inBrowser = useSyncExternalStore(noSub, () => true, () => false);
   const [data, setData] = useState<LedgerData | null>(null);
   const [page, setPage] = useState<"money" | "integrity">("money");
@@ -202,11 +259,18 @@ export default function Ledger({ licenseKey }: { licenseKey?: string }) {
       <div className="page-head">
         <div>
           <h1>Transparency ledger</h1>
-          <p className="muted" style={{ marginTop: 6 }}>Every pledge, every check and every PayPal movement, public. Built with AG Studio.</p>
+          <p className="muted" style={{ marginTop: 6 }}>Every pledge, every check and every PayPal movement, public. Built with AG Studio.{aiEnabled ? " Ask the ledger lets AG Studio's AI agents answer questions and build charts from this data. They can change your view of the dashboard, never the money." : ""}</p>
         </div>
-        <div className="seg" role="group" aria-label="Report page">
-          <button aria-pressed={page === "money"} onClick={() => setPage("money")}>Money</button>
-          <button aria-pressed={page === "integrity"} onClick={() => setPage("integrity")}>Integrity</button>
+        <div className="row">
+          <div className="seg" role="group" aria-label="Report page">
+            <button aria-pressed={page === "money"} onClick={() => setPage("money")}>Money</button>
+            <button aria-pressed={page === "integrity"} onClick={() => setPage("integrity")}>Integrity</button>
+          </div>
+          {aiEnabled && (
+            <button type="button" className={`btn sm ${ask ? "" : "ghost"}`} aria-pressed={ask} onClick={() => setAsk((v) => !v)}>
+              {ask ? "Close the assistant" : "Ask the ledger"}
+            </button>
+          )}
         </div>
       </div>
       {!data || !inBrowser ? (
@@ -216,7 +280,20 @@ export default function Ledger({ licenseKey }: { licenseKey?: string }) {
       ) : (
         <div className="studio-box">
           <AgStudioProvider licenseKey={licenseKey}>
-            <AgStudio key={page} style={{ height: "100%", width: "100%" }} theme={theme} data={studioData!} initialState={initialState} mode="view" />
+            {ask ? (
+              <AgStudio
+                key={`${page}-ask`}
+                style={{ height: "100%", width: "100%" }}
+                theme={theme}
+                data={studioData!}
+                initialState={{ ...initialState, panels: { ai: { collapsed: false, width: 380 } } }}
+                mode="edit"
+                panels={{ edit: { right: ["ai"] } }}
+                ai={({ api }) => createAiHarness(api, { adapter: ledgerAdapter, primary: "lead", promptStarters: PROMPTS })}
+              />
+            ) : (
+              <AgStudio key={page} style={{ height: "100%", width: "100%" }} theme={theme} data={studioData!} initialState={initialState} mode="view" />
+            )}
           </AgStudioProvider>
         </div>
       )}

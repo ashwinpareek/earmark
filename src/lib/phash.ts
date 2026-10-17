@@ -19,8 +19,8 @@ export const LOOKALIKE_MIN = 0.75;
 export async function visualHash(buf: Buffer, mime: string): Promise<string | undefined> {
   if (!mime.startsWith("image/")) return undefined; // PDFs: rely on SHA-256 and document numbers
   try {
-    const trimmed = await sharp(buf).grayscale().trim({ threshold: 30 }).toBuffer();
-    const { data } = await sharp(trimmed).resize(W, H, { fit: "fill", kernel: "cubic" }).raw().toBuffer({ resolveWithObject: true });
+    const trimmed = await sharp(buf).flatten({ background: "#ffffff" }).grayscale().trim({ threshold: 30 }).toBuffer();
+    const { data } = await sharp(trimmed).removeAlpha().grayscale().resize(W, H, { fit: "fill", kernel: "cubic" }).raw().toBuffer({ resolveWithObject: true });
     return Buffer.from(data.map((v) => 255 - v)).toString("base64");
   } catch {
     return undefined;

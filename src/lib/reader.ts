@@ -72,10 +72,11 @@ export function isSample(sha: string) {
   return Boolean(SAMPLES[sha]);
 }
 
-export async function readDocument(doc: Doc, buf: Buffer): Promise<{ extraction: Extraction; model: string }> {
+export async function readDocument(doc: Doc, buf: Buffer, opts: { fallback?: Extraction } = {}): Promise<{ extraction: Extraction; model: string }> {
   if (aiProvider() === "offline") {
     const hit = SAMPLES[doc.sha256];
     if (hit) return { extraction: hit.extraction, model: "offline (sample answer key)" };
+    if (opts.fallback) return { extraction: opts.fallback, model: "offline (Maya's answer key + your edits)" };
     throw new AIError("No AI key is configured, so only the bundled sample documents can be read. Add GEMINI_API_KEY, ANTHROPIC_API_KEY or OPENAI_API_KEY to .env.");
   }
   const hit = SAMPLES[doc.sha256];
@@ -94,6 +95,7 @@ export async function readDocument(doc: Doc, buf: Buffer): Promise<{ extraction:
     // Quota exhausted, rate-limited, timed out or malformed: the bundled demo documents keep
     // working from their answer key, so judges never hit a dead demo. Real uploads need the AI.
     if (hit) return { extraction: hit.extraction, model: `sample answer key (AI unavailable: ${(e as Error).message.slice(0, 60)})` };
+    if (opts.fallback) return { extraction: opts.fallback, model: `Maya's answer key + your edits (AI unavailable: ${(e as Error).message.slice(0, 60)})` };
     throw e;
   }
 }

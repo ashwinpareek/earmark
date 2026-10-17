@@ -3,8 +3,8 @@
 Paste each section into the matching Devpost field. **Rewrite "Challenges" and "What I learned" in your own words** — judges read for authenticity, and you'll be asked about it if you win.
 
 **Name:** Earmark
-**Tagline:** Donations that can only pay the bill.
-**Built with:** paypal, paypal-orders-v2, paypal-payouts, paypal-webhooks, gemini (or claude/openai), ag-studio, ag-grid, next.js, react, typescript, zod, render
+**Tagline:** The best a scammer can do is pay a stranger's hospital bill.
+**Built with:** paypal, paypal-orders-v2, paypal-authorizations, paypal-payouts, paypal-webhooks, gemini (or claude/openai), ag-studio (incl. its AI agents), ag-grid, next.js, react, typescript, zod, sharp, postgresql, render (web service, postgres, cron job)
 
 ---
 
@@ -57,6 +57,17 @@ The demo has two scams:
   Five checks fail, each with evidence.
 - **The copycat:** a stranger re-uploads Maya's real documents, with the estimate cropped and re-saved so the file hash is different. A **visual fingerprint** still recognises the page (98% match), and the radar shows where else it appeared.
 
+## The Forgery Lab
+
+Judges don't have to take my word for any of this. **`/lab` hands you Maya's real estimate and lets you forge it in the browser:**
+- change the total;
+- raise a line and the total together;
+- swap the patient or the hospital's phone number;
+- hide a note for the AI;
+- crop and re-save it.
+
+Then you submit it and try to get paid. You watch the investigation run as a case file: registry, arithmetic, **the hospital's billing office asked directly**, every document Earmark has ever seen, hidden text. It ends in a stamp and the AI investigator's notes. A public scoreboard counts every attempt, and one number never moves: **paid to forgers, $0.00**. Even a forgery that beats every check can only collect holds captured for a bill the hospital submits, paid to the hospital.
+
 ## How I built it
 
 - **PayPal:**
@@ -71,7 +82,7 @@ The demo has two scams:
   - a **Bill Line Classifier**;
   - a **Campaign Q&A** that answers donors only from verified facts.
 - **The rules decide, not the model.** Forensic checks, bill reconciliation and settlement are deterministic TypeScript. Settlement uses largest-remainder allocation in integer cents, so every donor pays the same fraction, totals are exact, and nobody is ever over-charged. It's property-tested over 300 randomised cases.
-- **Tested like an attacker would.** An attack suite forges Maya's documents one way at a time: 10 of 11 attacks are held, and 0 of 4 honest controls are. The one that passes (a consistent edit of a line and the total) is listed as a known limit, because the hospital's own final bill decides what's paid.
+- **Tested like an attacker would.** An attack suite forges Maya's documents one way at a time: all 11 attacks are held, and none of the 4 honest controls are. The hardest one, a line item and the total raised together so the sums still work, is caught only because Earmark asks the hospital's billing office directly.
 - **Robust by design.**
   - Every hold is re-checked with PayPal before collection. A lapsed pledge's share is spread across the others, and any gap is shown as a shortfall.
   - The ledger marks a payment *confirmed* only on a **signature-verified PayPal webhook** or an API read-back.
