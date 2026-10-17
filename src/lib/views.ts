@@ -16,7 +16,7 @@ export function viewFor(c: Campaign, role: Role) {
     ...base,
     organizer: { name: c.organizer.name, relationship: c.organizer.relationship, email: "" },
     docs: c.docs.map((d) => ({ id: d.id, kind: d.kind, uploadedAt: d.uploadedAt, uploadedBy: d.uploadedBy, readerModel: d.readerModel, filename: "", mime: d.mime, sha256: d.sha256.slice(0, 12), size: d.size })),
-    verification: c.verification && { ...c.verification, checks: c.verification.checks.map((k) => ({ ...k, detail: scrub(k.detail) })) },
+    verification: c.verification && { ...c.verification, checks: c.verification.checks.map((k) => ({ ...k, detail: scrub(k.detail) })), notes: c.verification.notes && { ...c.verification.notes, text: scrub(c.verification.notes.text) } },
     billReview: c.billReview && { ...c.billReview, checks: c.billReview.checks.map((k) => ({ ...k, detail: scrub(k.detail) })) },
     careCosts: c.careCosts.map((k) => ({ ...k, note: scrub(k.note), checks: k.checks.map((x) => ({ ...x, detail: scrub(x.detail) })) })),
     organizerResponse: c.organizerResponse && { ...c.organizerResponse, text: scrub(c.organizerResponse.text) },

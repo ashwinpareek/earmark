@@ -6,8 +6,8 @@ import { paypalMode } from "@/lib/paypal";
 import { aiProvider, aiModelName } from "@/lib/ai";
 
 export const metadata: Metadata = {
-  title: "Earmark — donations that can only pay the bill",
-  description: "Verified medical fundraising on PayPal. Donations are held, not charged, until the hospital's bill is verified — then paid straight to the hospital.",
+  title: "Earmark — the best a scammer can do is pay a stranger's hospital bill",
+  description: "Medical fundraising on PayPal where donations are holds that can only pay a hospital-confirmed bill. Forge a bill in the Forgery Lab and watch Earmark catch it.",
   icons: { icon: "/favicon.svg" },
 };
 
@@ -40,6 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <span className={`dot ${pp === "mock" ? "warn" : ""}`} /> PayPal {pp}
                 <span className={`dot ${ai === "offline" ? "warn" : ""}`} /> {aiModelName()}
               </span>
+              <Link href="/lab" className="nav-lab">Forgery Lab</Link>
               <Link href="/campaigns" className="hide-sm">Campaigns</Link>
               <Link href="/radar" className="hide-sm">Radar</Link>
               <Link href="/hospital" className="hide-sm">Providers</Link>

@@ -1,6 +1,8 @@
 # Earmark
 
-**Donations that can only pay the bill.**
+**The best a scammer can do is pay a stranger's hospital bill.**
+
+**[Try to forge a bill →](#the-forgery-lab)** Open `/lab`, edit a real hospital estimate in your browser, and try to raise money with it.
 
 Earmark is verified medical fundraising on PayPal.
 - **Before a campaign goes live**, an AI reads the hospital's documents and plain rules check them.
@@ -11,6 +13,32 @@ Earmark is verified medical fundraising on PayPal.
 - **The family never handles the money**, and neither does the platform.
 
 > Medical crowdfunding raises hundreds of millions of dollars a year on trust alone. Fake campaigns follow a recurring pattern: no hospital named, a target that triples after launch, organizers who disappear, and copies of real families' campaigns. Verification usually happens only after someone complains. Platforms that pay hospitals directly still take donors' money up front. Earmark removes the trust step altogether.
+
+---
+
+## The Forgery Lab
+
+The fastest way to understand Earmark is to attack it. `/lab` gives you Maya's real estimate from Riverside Children's Hospital. You can forge it however you like:
+- inflate the total;
+- raise a line item **and** the total together, so the sums still work;
+- put another patient's name on it;
+- swap the hospital's phone number for your own;
+- hide a near-invisible note telling the AI to approve it;
+- crop and re-save it so the file is different.
+
+Then you submit it as your own campaign. A case file opens step by step and ends in a stamp:
+- the hospital is checked against the registry;
+- every line is added up;
+- **the hospital's billing office is asked directly**;
+- every document Earmark has seen is searched;
+- edits and hidden text are looked for;
+- the AI investigator writes notes for the reviewer.
+
+A public scoreboard counts every attempt: *forgeries submitted · held · amount forgers asked for · **paid to forgers: $0.00***.
+
+The third line of defence is why that last number is always zero. Even a forgery that beats every check can only collect PayPal holds that are captured for a bill **the hospital submits**, and the money is paid to **the hospital's registered PayPal account**. The best a forger can achieve is paying Maya's real bill.
+
+> With an AI key, the model reads your forged pixels like any upload, and looks for mismatched fonts and painted-over values. Without one, the Lab applies your edits to Maya's answer key, says so on the case file, and the same rules decide.
 
 ---
 
@@ -74,6 +102,8 @@ Settlement (integer cents) ─► per-donor partial capture, final_capture=true 
 | Care receipts | Same classifier | `care.ts`: verified issuer, patient, arithmetic, reuse, capped at 10% of the goal |
 | Move money | — | `settlement.ts`: largest-remainder allocation in integer cents. Everyone pays the same fraction, nobody is over-charged, and totals are exact (property-tested) |
 | Answer donors | **Campaign Q&A**: answers only from verified facts | Facts are written by code from verified extractions |
+| Brief the reviewer | **Investigator notes**: a case summary written after the rules decide | The verdict is final before the notes are written |
+| Ask the ledger | **AG Studio's own agents** filter, chart and summarise the public ledger (turns proxied through `/api/studio-ai`, key stays server-side) | Their tools only change the dashboard view; nothing can touch money |
 
 **Safety:**
 - Documents and questions are fenced as untrusted data.
@@ -116,6 +146,8 @@ Earmark supports two PayPal setups, chosen with `PAYEE_MODE`.
   - `PAYMENT.PAYOUTS-ITEM.*`, matched per item by `sender_item_id`
 
   For local runs with no public URL, **Check with PayPal now** reads each movement back from the API instead. Unverified webhooks are logged but can't confirm anything.
+- **The server restarts?** With `DATABASE_URL` set (render.yaml creates Render Postgres), every campaign, ledger entry and uploaded document is stored in Postgres, so restarts, redeploys and free-plan sleeps lose nothing.
+- **A hold gets old?** A daily Render cron job (`/api/cron/holds`) renews each PayPal hold once its 3-day honor period has passed (PayPal only allows that from day 4). It also marks holds that expired, so the page never claims money that can't be collected.
 - **Settled twice?** Settlement first claims the campaign atomically, so a double click or a second tab gets "already being settled". Every capture also carries a `PayPal-Request-Id`, so even a retried request can't charge twice.
 - **The AI is down or out of quota?** AI calls time out after 45s. The bundled sample documents fall back to their answer key, bill lines fall back to keyword rules, and Q&A answers from verified facts. Only brand-new uploads need the AI.
 
@@ -132,7 +164,8 @@ Earmark supports two PayPal setups, chosen with `PAYEE_MODE`.
 - **After the 3-day honor period, a capture isn't guaranteed.** PayPal tries to honour it until day 29 but the donor's funds may no longer be available. That's why Earmark re-checks every hold before collecting and reports any shortfall instead of assuming the money is there.
 - **Partial captures** must be enabled on the PayPal account that captures.
 - **Payouts need an eligible sender.** PayPal must enable Payouts for the business account, and sending Payouts isn't available from every country (an India-based business can receive but not send them). Direct mode avoids Payouts entirely.
-- **What the forensics can't catch.** A forger who edits a line *and* the total consistently, on a real hospital's letterhead, passes the estimate checks (see the attack suite below). The final bill comes from the hospital itself, and only the bill decides what is paid. The visual fingerprint catches re-saved, re-scanned and cropped copies, not a phone photo taken at a steep angle.
+- **Hospital confirmation is simulated.** Real hospitals don't expose a "did you issue this?" API. `hospital.ts` simulates each registered hospital's billing system with the documents it really issued, and every check that uses it says "simulated". In production this is the billing office's portal or a phone call, made through contact details in Earmark's registry.
+- **The visual fingerprint** catches re-saved, re-scanned and cropped copies. It doesn't catch a phone photo taken at a steep angle.
 - **Providers must accept PayPal.** The registry covers hospitals, clinics, pharmacies and medical-supply stores. Bank-transfer payouts to providers without PayPal are future work.
 - **No login in the demo:** roles are switched in the UI, and the provider registry is a fixed list of fictional providers.
 
@@ -179,7 +212,7 @@ npm run dev               # http://localhost:3000
 npm test
 ```
 
-There are 27 tests:
+There are 31 tests:
 - **Settlement maths:** exact totals, fair shares, rounding, and 300 randomised invariant cases.
 - **The rules on the real sample documents:** genuine passes; doctored is held for exactly the right reasons; the copycat is caught and linked to the original.
 - **Care receipts:** balloon excluded, unverified shop held.
@@ -200,13 +233,17 @@ There are 27 tests:
 | Attack | Borrowed estimate number, new patient | HELD | duplicate |
 | Attack | Hidden text telling the AI to approve | HELD | injection |
 | Attack | Estimate dated in the future | HELD | dates |
-| Attack | Consistent edit: one line and the total raised together | **passes** (known limit; the hospital's bill decides payment) | — |
+| Attack | Consistent edit: one line and the total raised together | HELD | hospital_confirmed (the hospital's amount is $2,400) |
 | Control | Maya's genuine documents | passes | — |
 | Control | Same family re-opens its own campaign | passes | — |
 | Control | Different family, same hospital and template | live with a note | clinical (no doctor's note) |
 | Control | No clinical note uploaded | live with a note | clinical |
 
-**Attacks held: 10 of 11. Honest controls wrongly held: 0 of 4.**
+**Attacks held: 11 of 11. Honest controls wrongly held: 0 of 4.**
+
+Also tested:
+- **The Forgery Lab** (`tests/lab.test.ts`): the careful forger passes the arithmetic but the hospital catches it.
+- **The daily hold monitor** (`tests/monitor.test.ts`): a hold is renewed once after its honor period, and an expired one lapses.
 
 ## How Earmark differs
 
@@ -228,12 +265,17 @@ src/lib/
   reconcile.ts     Final-bill review
   care.ts          Capped care-cost receipts paid to verified pharmacies and suppliers
   settlement.ts    Fair-share allocation in integer cents
-  agents.ts        Bill line classifier, campaign Q&A
-  workflow.ts      State machine, settlement, reuse alerts, reuse radar
+  agents.ts        Bill line classifier, campaign Q&A, investigator notes
+  hospital.ts      Out-of-band confirmation with the hospital's billing office (simulated)
+  phash.ts         Visual fingerprint: recognises cropped and re-saved copies of a page
+  lab.ts           Forgery Lab: the visitor's edits, and the offline reading of a forgery
+  pg.ts            Optional Postgres persistence (state + uploaded documents)
+  workflow.ts      State machine, settlement, reuse alerts, reuse radar, daily hold monitor
   paypal.ts        Orders v2 authorize (optional payee), capture, void, multi-item Payouts, webhooks
   providers.ts     Verified provider registry (hospitals, clinics, pharmacies, medical supplies)
   views.ts         Role-based redaction (donor / family / provider / reviewer)
-src/app/           Landing, start, campaign (+ receipts), radar, providers, review, ledger (AG Studio)
+src/app/           Landing, Forgery Lab, start, campaign (+ evidence, receipts), radar, providers, review,
+                   ledger (AG Studio + "Ask the ledger" agents), api/studio-ai, api/cron/holds
 scripts/make-samples.py   Generates the fictional demo documents
 ```
 

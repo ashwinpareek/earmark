@@ -96,6 +96,8 @@ export interface VerificationReport {
   checks: Check[];
   summary: string;
   at: string;
+  /** The AI investigator's write-up for the reviewer. It explains; it never decides. */
+  notes?: { text: string; model: string };
 }
 
 export type CampaignStatus =
@@ -121,6 +123,8 @@ export interface Donation {
   orderId?: string;
   authorizationId?: string;
   authorizationExpiresAt?: string;
+  authorizedAt?: string;
+  reauthorizedAt?: string; // PayPal allows renewing a hold once its 3-day honor period has passed
   captured?: string;
   neverCharged?: string;
   captureId?: string;
@@ -209,6 +213,7 @@ export interface Campaign {
   billReview?: BillReview;
   careCosts: CareCost[];
   organizerResponse?: { text: string; at: string };
+  lab?: boolean; // a Forgery Lab attempt
   settlingSince?: string; // settlement claim (lock)
   protectedCopies?: number; // times this campaign's documents were caught being reused elsewhere
   settlement?: {

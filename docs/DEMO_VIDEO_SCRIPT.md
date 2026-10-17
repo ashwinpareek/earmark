@@ -1,24 +1,24 @@
-# Demo video script (target 2:45, hard limit 3:00)
+# Demo video script (target 2:50, hard limit 3:00)
 
-**Setup before recording:**
-- Run with real sandbox keys, an AI key and `PROVIDER_PAYPAL_EMAIL` set.
-- Start from an empty `data/` folder.
-- Log the sandbox buyer in once beforehand so the popup is fast.
-- Record at 1280×720 or higher with the browser zoomed to 110%.
-- Use no copyrighted music.
-- Pre-make two or three pledges from different sandbox buyers so the split has several donors.
+**The hook is the Forgery Lab.** Open on a forgery, not on a donation form. Judges remember the moment they watched a scam get caught, and "paid to forgers: $0.00".
+
+**Before recording:**
+- Run with real sandbox keys, `GEMINI_API_KEY` and `PROVIDER_PAYPAL_EMAIL` set, so the AI reads your forged pixels.
+- Start from an empty database.
+- Make two or three sandbox pledges on Maya beforehand from different buyers.
+- Record at 1280×720 or higher, browser zoom 110%, no copyrighted music.
 
 | Time | Screen | Say |
 |---|---|---|
-| 0:00–0:12 | Landing page; the receipt animates from held to split | "Medical fundraising runs on trust. Fake campaigns inflate bills, copy real families' pages, and keep the money. Earmark makes that impossible. Donations can only pay the bill." |
-| 0:12–0:32 | **Start a campaign** → **Maya (genuine)** → publish. The progress steps run, then 9 green checks | "A mother uploads the hospital's estimate, Maya's registration card and the doctor's note. An AI reads them, even phone photos, and plain rules check them: the hospital against the registry, the totals to the cent, the same patient everywhere. The goal comes from the hospital." |
-| 0:32–0:50 | Donor view: $100 → PayPal popup → approve. Shows "held, not charged" | "I pledge a hundred dollars. PayPal holds it. I'm not charged, and nobody can touch it, not even the family." |
-| 0:50–1:25 | **Family** → *sample pharmacy receipt* (balloon excluded). **Hospital** → *sample final bill* (parking struck through). Then **Where the money went** and the receipt | "Medicines count: a verified pharmacy receipt, capped at 10%, and the balloon doesn't count. Then the hospital's final bill: the parking pass isn't medical care. Every donor pays the same fair share, the hospital and pharmacy are paid directly, the rest is never charged, and the family receives zero dollars." |
-| 1:25–2:05 | Home → **Leo** → On hold, 5 checks failed. Switch to **Reviewer**: the boxes animate onto the estimate. Click **X-ray**: the hidden note appears. Reject | "Now a scam. The line items add to three thousand; the total says nine thousand eight hundred. The estimate number is borrowed. Leo is seven, but his ID says 1991. And a note, printed almost white-on-white, tells the AI to approve it. Earmark holds it and shows the reviewer exactly where each problem is printed. Rules never reject on their own: the family can explain, and a person decides." |
-| 2:05–2:30 | Home → **the copycat** → duplicate check ("re-saved copy… 98% visual match") → **Radar** → back to Maya's page showing "Protected" | "The most common scam: copying a real family's documents. This one was cropped and re-saved so the file is different, but Earmark recognises the page itself. The radar shows where it appeared, and Maya's page tells donors her documents were protected." |
-| 2:30–2:45 | **Ledger** (AG Studio): Paid to families $0.00, the donut, the movements | "Everything is public in the ledger. Paid to families: zero. Earmark: donations that can only pay the bill." |
+| 0:00–0:15 | Home page headline: *"The best a scammer can do is pay a stranger's hospital bill."* | "Medical fundraising runs on trust, and scammers know it. They fake hospital bills, copy real families' campaigns, and keep the money. I built Earmark so that, even if a scam gets through, the best a scammer can do is pay a stranger's hospital bill." |
+| 0:15–0:50 | **Forgery Lab.** Click the total on Maya's estimate and type $5,400. Click the surgeon fee and type $3,980, so the sums still work. Add the hidden note. Submit. | "Let's be the scammer. This is a real estimate from a campaign on Earmark. I'll raise the surgeon fee and the total by the same three thousand dollars, so the arithmetic still works, and hide a note telling the AI to approve it." |
+| 0:50–1:20 | The case file reveals step by step: arithmetic passes ✓, **hospital: "its amount is $2,400"** ✕, reuse 99% visual match ✕, hidden instruction ✕. BLOCKED stamp, investigator notes, scoreboard "Paid to forgers $0.00" | "The sums add up, so a normal check passes. But Earmark asks the hospital's billing office directly, through its own registry and never the number on the document, and the hospital says this estimate was for $2,400. It also recognises Maya's page even after editing, and catches the hidden note. The AI wrote these notes, but plain rules made the decision." |
+| 1:20–1:35 | **See the evidence on your forgery**: red boxes over the forged values, then X-ray | "A reviewer sees a box over every value that didn't add up. X-ray makes the hidden note readable." |
+| 1:35–2:15 | Maya's real campaign: donor pledges $100 in the PayPal popup ("held, not charged"). **Hospital** → sample final bill (parking excluded). **Where the money went** + receipt | "Now the real family. Donations are PayPal holds, not charges. When the hospital submits its bill, Earmark checks it line by line and drops the parking pass. Then it partially captures every hold for exactly its fair share. The rest is released and never charged, and the money goes straight to the hospital and pharmacy. The family receives zero dollars." |
+| 2:15–2:40 | **Ledger** (AG Studio): "Paid to families $0.00". Click **Ask the ledger**, then the starter "Prove families got $0" | "Everything is public in an AG Studio ledger, and you can ask it questions. AG Studio's own AI agents answer from the data, but they can only change the view, never the money." |
+| 2:40–2:50 | Back to the Lab scoreboard | "Try to forge a bill yourself: the link is below. So far, forgers have asked for thousands of dollars and been paid exactly nothing. Earmark: donations that can only pay the bill." |
 
 **Tips:**
-- Cut the dead time while the AI reads documents, or keep a few seconds of the progress steps since they're satisfying to watch.
-- If you have time, show the sandbox **Business** account receiving the payout. It proves real sandbox money moved.
-- Upload the video as **Public** on YouTube.
+- Keep the Lab segment tight. The reveal animation is the show, so don't talk over the stamp.
+- If time allows, show the sandbox Business account receiving the payout, to prove real sandbox money moved.
+- Upload as **Public** on YouTube.

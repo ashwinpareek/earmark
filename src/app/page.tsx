@@ -2,27 +2,52 @@ import Link from "next/link";
 import HeroReceipt from "@/components/HeroReceipt";
 import DemoButton from "@/components/DemoButtons";
 import ResetDemo from "@/components/ResetDemo";
+import LabScore from "@/components/LabScore";
 
 export default function Home() {
   return (
     <div className="wrap">
       <section className="hero">
         <div>
-          <h1>Donations that can only pay the bill.</h1>
+          <p className="eyebrow">Medical fundraising on PayPal</p>
+          <h1>The best a scammer can do is pay a stranger&apos;s hospital bill.</h1>
           <p className="lede">
-            Earmark checks the hospital&apos;s documents before a medical fundraiser goes live. Donations are held on PayPal, not charged. When the
-            bill is verified, each donor pays a fair share straight to the verified provider, and the rest is never charged.
+            On Earmark every donation is a PayPal hold, not a charge. It can only be collected for a bill the hospital itself confirms, and only paid
+            to the hospital. Forge the paperwork and you get caught. Beat the checks and you&apos;ve paid for someone&apos;s surgery.
           </p>
           <div className="row">
-            <Link href="/start" className="btn">Start a campaign</Link>
-            <DemoButton scenario="honest" label="See a verified campaign" className="btn ghost" />
+            <Link href="/lab" className="btn danger-solid">Try to forge a bill</Link>
+            <DemoButton scenario="honest" label="See a real campaign" className="btn ghost" />
           </div>
+          <LabScore />
           <p className="fine">
-            Medical fundraisers raise hundreds of millions a year on trust alone. Fake campaigns use real children&apos;s photos, inflate targets after
-            launch and keep the money. Earmark removes the trust step: the money can&apos;t go anywhere except the verified bill.
+            Medical crowdfunding runs on trust: fake campaigns borrow real children&apos;s photos, inflate the target and keep the money. Earmark removes
+            the trust step. An AI reads the hospital&apos;s documents, plain rules check every claim, and PayPal holds make sure the money can only ever
+            reach the verified bill.
           </p>
         </div>
         <HeroReceipt />
+      </section>
+
+      <section className="band" aria-labelledby="layers">
+        <div>
+          <h2 id="layers">Why a scam can&apos;t cash out</h2>
+          <p className="intro">Three independent layers. A forger has to beat all three, and the third can&apos;t be beaten.</p>
+        </div>
+        <ol className="layers">
+          <li>
+            <span className="layer-n">1</span>
+            <div><strong>The documents are investigated</strong><p>An AI transcribes every page; deterministic rules check it: registry details, arithmetic to the cent, one patient everywhere, every document Earmark has ever seen (even cropped, re-saved copies), and hidden text aimed at the AI. Reviewers see a box over every forged value.</p></div>
+          </li>
+          <li>
+            <span className="layer-n">2</span>
+            <div><strong>The hospital is asked directly</strong><p>Earmark contacts the billing office through its own registry, never the phone number printed on the document, and asks: did you issue this estimate, for this patient, for this amount?</p></div>
+          </li>
+          <li>
+            <span className="layer-n">3</span>
+            <div><strong>The money physically can&apos;t go anywhere else</strong><p>Pledges are PayPal authorizations. They&apos;re captured only for a bill the hospital submits, split fairly across donors, and paid to the hospital&apos;s registered PayPal account. The family receives $0; so does a forger who got this far.</p></div>
+          </li>
+        </ol>
       </section>
 
       <section className="band" aria-labelledby="how">
@@ -51,6 +76,8 @@ export default function Home() {
           <div><b>Nothing is reused</b><span>A file or document number seen in another campaign puts it on hold.</span></div>
           <div><b>No signs of editing</b><span>Numbers in a different font, pasted regions, overwritten totals.</span></div>
           <div><b>No hidden instructions</b><span>A document that tells the AI to approve it is treated as fraud.</span></div>
+          <div><b>Confirmed by the hospital</b><span>The billing office confirms the document number, the patient and the amount.</span></div>
+          <div><b>No re-saved copies</b><span>A visual fingerprint recognises a page even after cropping and re-saving.</span></div>
           <div><b>The bill matches the estimate</b><span>Growth beyond 15% of the verified estimate needs a human reviewer.</span></div>
           <div><b>Only medical care is paid</b><span>Each bill line is classified; non-medical extras are excluded.</span></div>
         </div>
@@ -71,12 +98,17 @@ export default function Home() {
 
       <section className="band" aria-labelledby="try">
         <div>
-          <h2 id="try">Try all three</h2>
+          <h2 id="try">Try it</h2>
           <p className="intro">Demo campaigns built from fictional hospital documents. Open them in order, then the <Link href="/radar">reuse radar</Link>.</p>
           <p className="intro">Your demo is private to your browser. Start again any time:</p>
           <div style={{ marginTop: 10 }}><ResetDemo /></div>
         </div>
         <div className="tryit three">
+          <div className="card lab-card">
+            <h3>Forge a bill yourself</h3>
+            <p>Edit Maya&apos;s real estimate in your browser: change the total, the patient, the phone number, hide a note for the AI, or crop and re-save it. Then try to get paid.</p>
+            <Link href="/lab" className="btn danger-solid">Open the Forgery Lab</Link>
+          </div>
           <div className="card">
             <h3>Maya needs emergency surgery</h3>
             <p>A genuine estimate, registration card and doctor&apos;s note. Verified in seconds. Pledge, submit the hospital&apos;s bill and a pharmacy receipt, and watch the money split.</p>

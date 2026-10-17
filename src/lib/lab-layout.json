@@ -1,0 +1,225 @@
+{
+  "width": 1240,
+  "height": 1754,
+  "background": [
+    253,
+    253,
+    251
+  ],
+  "ink": [
+    28,
+    33,
+    48
+  ],
+  "fields": [
+    {
+      "id": "total",
+      "label": "Total owed",
+      "value": "$2,400.00",
+      "box": [
+        1023,
+        1002,
+        1160,
+        1029
+      ],
+      "font": "700 26px",
+      "align": "right",
+      "kind": "money"
+    },
+    {
+      "id": "line0",
+      "label": "Surgeon fee \u2014 laparoscopic appendectomy",
+      "value": "$980.00",
+      "box": [
+        1076,
+        644,
+        1160,
+        665
+      ],
+      "font": "400 21px",
+      "align": "right",
+      "kind": "money"
+    },
+    {
+      "id": "line1",
+      "label": "Anaesthesia services",
+      "value": "$460.00",
+      "box": [
+        1075,
+        688,
+        1160,
+        709
+      ],
+      "font": "400 21px",
+      "align": "right",
+      "kind": "money"
+    },
+    {
+      "id": "line2",
+      "label": "Operating room, up to 90 minutes",
+      "value": "$620.00",
+      "box": [
+        1076,
+        732,
+        1160,
+        753
+      ],
+      "font": "400 21px",
+      "align": "right",
+      "kind": "money"
+    },
+    {
+      "id": "line3",
+      "label": "Paediatric inpatient room, per night",
+      "value": "$240.00",
+      "box": [
+        1076,
+        776,
+        1160,
+        797
+      ],
+      "font": "400 21px",
+      "align": "right",
+      "kind": "money"
+    },
+    {
+      "id": "line4",
+      "label": "Medications and IV fluids (estimated)",
+      "value": "$60.00",
+      "box": [
+        1089,
+        820,
+        1160,
+        841
+      ],
+      "font": "400 21px",
+      "align": "right",
+      "kind": "money"
+    },
+    {
+      "id": "line5",
+      "label": "Laboratory tests (CBC, CRP, urinalysis)",
+      "value": "$40.00",
+      "box": [
+        1088,
+        864,
+        1160,
+        885
+      ],
+      "font": "400 21px",
+      "align": "right",
+      "kind": "money"
+    },
+    {
+      "id": "patientName",
+      "label": "Patient name",
+      "value": "Maya Rodriguez",
+      "box": [
+        790,
+        355,
+        945,
+        374
+      ],
+      "font": "500 20px",
+      "align": "left",
+      "kind": "text"
+    },
+    {
+      "id": "ageDob",
+      "label": "Age / date of birth",
+      "value": "9  \u00b7  04 Mar 2017",
+      "box": [
+        790,
+        390,
+        949,
+        406
+      ],
+      "font": "500 20px",
+      "align": "left",
+      "kind": "text"
+    },
+    {
+      "id": "documentNumber",
+      "label": "Estimate number",
+      "value": "EST-2026-08812",
+      "box": [
+        290,
+        355,
+        454,
+        370
+      ],
+      "font": "500 20px",
+      "align": "left",
+      "kind": "text"
+    },
+    {
+      "id": "documentDate",
+      "label": "Date issued",
+      "value": "2 October 2026",
+      "box": [
+        290,
+        391,
+        441,
+        406
+      ],
+      "font": "500 20px",
+      "align": "left",
+      "kind": "text"
+    },
+    {
+      "id": "providerPhone",
+      "label": "Hospital phone",
+      "value": "+1 (512) 555-0142",
+      "box": [
+        198,
+        137,
+        372,
+        172
+      ],
+      "font": "400 19px",
+      "align": "left",
+      "kind": "text",
+      "color": [
+        92,
+        98,
+        112
+      ]
+    },
+    {
+      "id": "providerRegistrationNo",
+      "label": "Hospital licence",
+      "value": "TX-HOSP-004417",
+      "box": [
+        520,
+        137,
+        692,
+        172
+      ],
+      "font": "400 19px",
+      "align": "left",
+      "kind": "text",
+      "color": [
+        92,
+        98,
+        112
+      ]
+    }
+  ],
+  "hidden": {
+    "x": 80,
+    "y": 1142,
+    "font": "400 13px",
+    "color": [
+      244,
+      244,
+      241
+    ]
+  },
+  "crop": {
+    "x0": 18,
+    "y0": 25,
+    "x1": 1210,
+    "y1": 1742,
+    "scale": 0.83
+  }
+}

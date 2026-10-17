@@ -2,8 +2,10 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { Campaign, TimelineEvent } from "./types";
 import { uid, nowIso } from "./util";
+import { loadState, saveState, usingPostgres } from "./pg";
 
-// Tiny JSON-file store: zero setup for judges. Writes are serialized through a promise
+// Tiny document store: a JSON file locally (zero setup for judges), or one Postgres row when
+// DATABASE_URL is set (see pg.ts), so a hosted demo survives restarts. Writes are serialized through a promise
 // queue and written atomically (tmp file + rename), so a crash never corrupts the file.
 
 export const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data");
@@ -25,7 +27,18 @@ export interface FingerprintEntry {
   at: string;
 }
 
+export interface LabAttempt {
+  at: string;
+  campaignId: string;
+  edits: string[];
+  requested: string; // the amount the forgery asked donors for
+  outcome: "held" | "live";
+  caughtBy: string[]; // labels of the checks that failed
+}
+export interface LabStats { attempts: number; held: number; requestedCents: number; recent: LabAttempt[] }
+
 interface DB {
+  lab?: LabStats;
   campaigns: Record<string, Campaign>;
   fingerprints: FingerprintEntry[];
   webhookEvents: { id: string; type: string; at: string; verified: boolean }[];
@@ -36,10 +49,14 @@ const g = globalThis as G;
 
 async function load(): Promise<DB> {
   if (g.__earmarkDb) return g.__earmarkDb;
-  try {
-    g.__earmarkDb = JSON.parse(await fs.readFile(DB_FILE, "utf8")) as DB;
-  } catch {
-    g.__earmarkDb = { campaigns: {}, fingerprints: [], webhookEvents: [] };
+  if (usingPostgres()) {
+    g.__earmarkDb = (await loadState<DB>()) ?? { campaigns: {}, fingerprints: [], webhookEvents: [] };
+  } else {
+    try {
+      g.__earmarkDb = JSON.parse(await fs.readFile(DB_FILE, "utf8")) as DB;
+    } catch {
+      g.__earmarkDb = { campaigns: {}, fingerprints: [], webhookEvents: [] };
+    }
   }
   g.__earmarkDb.fingerprints ??= [];
   for (const c of Object.values(g.__earmarkDb.campaigns)) c.careCosts ??= [];
@@ -48,6 +65,7 @@ async function load(): Promise<DB> {
 }
 
 async function persist(db: DB) {
+  if (usingPostgres()) return saveState(db);
   await fs.mkdir(DATA_DIR, { recursive: true });
   const tmp = DB_FILE + "." + process.pid + ".tmp";
   await fs.writeFile(tmp, JSON.stringify(db, null, 2));
@@ -160,4 +178,21 @@ export class HttpError extends Error {
   constructor(public status: number, message: string) {
     super(message);
   }
+}
+
+/** Forgery Lab: global, public counters (shared by every visitor). */
+export async function recordLabAttempt(a: LabAttempt) {
+  return tx((db) => {
+    const l = (db.lab ??= { attempts: 0, held: 0, requestedCents: 0, recent: [] });
+    l.attempts++;
+    if (a.outcome === "held") l.held++;
+    l.requestedCents += Math.round(Number(a.requested) * 100) || 0;
+    l.recent = [a, ...l.recent].slice(0, 25);
+    return structuredClone(l);
+  });
+}
+
+export async function labStats(): Promise<LabStats> {
+  const db = await load();
+  return structuredClone(db.lab ?? { attempts: 0, held: 0, requestedCents: 0, recent: [] });
 }
