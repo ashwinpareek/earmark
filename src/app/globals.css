@@ -412,3 +412,18 @@ table.lines tfoot td { font-weight: 800; border-bottom: none; }
 @media (max-width: 720px) { .tryit.three:has(.lab-card) { grid-template-columns: 1fr; } }
 .hero h1 { font-size: clamp(36px, 4.8vw, 60px); max-width: 15ch; line-height: 1.02; }
 .hero .lede { max-width: 44ch; }
+
+/* AG Studio custom widget: Money trail */
+.mt { height: 100%; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; font-family: var(--font); color: var(--ink); box-sizing: border-box; }
+.mt-title { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; }
+.mt-title span { font-size: 13px; font-weight: 500; color: var(--muted); margin-left: 8px; }
+.mt-stages { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; flex: 1; align-content: center; }
+.mt-stages li { display: grid; grid-template-columns: minmax(110px, 22%) minmax(0, 1fr) minmax(90px, auto); gap: 12px; align-items: center; font-size: 14px; }
+.mt-lbl { color: var(--ink-2); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mt-bar { height: 14px; background: var(--rule-2); border-radius: 7px; overflow: hidden; }
+.mt-bar span { display: block; height: 100%; background: var(--held); border-radius: 7px; transition: width 0.5s ease; }
+.mt-stages li:nth-child(2) .mt-bar span, .mt-stages li:nth-child(3) .mt-bar span, .mt-stages li:nth-child(4) .mt-bar span { background: var(--paid); }
+.mt-stages li:nth-child(5) .mt-bar span { background: var(--never-fill); }
+.mt-val { font-weight: 800; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.mt-stages li.fam .mt-lbl, .mt-stages li.fam .mt-val { color: var(--paid); }
+.mt-ok { margin-left: 8px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; border: 2px solid currentColor; border-radius: 5px; padding: 1px 6px; }

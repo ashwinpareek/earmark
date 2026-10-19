@@ -2,10 +2,11 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import {
-  AgStudioAiModule, AgStudioModuleRegistry, createAiHarness, studioTheme,
+  AgStudioAiModule, AgStudioModuleRegistry, studioTheme,
   type AgAiEvent, type AgAiOutputItem, type AgDataSourcesDefinition, type AgFieldDefinition, type AgFormat, type AgLlmAdapter, type AgLlmResponse, type AgPageState, type AgReportState, type AgWidgetLayoutState,
 } from "ag-studio";
 import { AgStudio, AgStudioProvider } from "ag-studio-react";
+import { makeHarness, studioWidgets, toolDisplay } from "./ledgerStudio";
 
 // Earmark's public transparency ledger, built on AG Studio. Anyone can see, for every
 // campaign: what was pledged, what the verified bill needed, what each donor paid, what was
@@ -58,6 +59,8 @@ const ledgerAdapter: AgLlmAdapter = {
 type AgLlmResponseHandlerStream = ReturnType<AgLlmAdapter["executeTurn"]>["stream"];
 
 const PROMPTS = [
+  { label: "Why is Leo's campaign on hold?", prompt: "Open Leo's case file and explain why the campaign is on hold." },
+  { label: "Trace Grace's $500", prompt: "Trace Grace's pledge through PayPal: what was held, charged, released and paid to whom?" },
   { label: "Which campaigns are on hold, and why?", prompt: "Which campaigns are on hold, and which checks failed for each? Answer from the ledger." },
   { label: "How much was never charged?", prompt: "Across all campaigns, how much did donors pledge, how much was charged, and how much was never charged? Then add a KPI for never charged." },
   { label: "Prove families got $0", prompt: "Show me, from the movements table, every payout and who received it. Did any money go to a family?" },
@@ -177,6 +180,7 @@ const money: AgPageState = {
     "kpi-paid": kpi("Paid to providers", sum("campaigns.charged")),
     "kpi-never": kpi("Never charged", sum("campaigns.neverCharged")),
     "kpi-family": kpi("Paid to families", sum("campaigns.paidToFamily")),
+    trail: { type: "money-trail" as never, dataMapping: { stages: [sum("campaigns.pledged"), sum("campaigns.charged"), sum("campaigns.paidToHospital"), sum("campaigns.paidToPharmacies"), sum("campaigns.neverCharged"), sum("campaigns.paidToFamily")] } } as never,
     outcomes: { type: "donut-chart", dataMapping: { categoryKey: [{ id: "outcomes.outcome" }], valueKey: [sum("outcomes.amount")] }, format: title("Where pledges ended up") },
     "by-campaign": {
       type: "column-chart-stacked",
@@ -190,7 +194,7 @@ const money: AgPageState = {
       format: title("PayPal money movements"),
     },
   },
-  widgetLayout: { "kpi-pledged": at(0, 0, 6, 7), "kpi-paid": at(6, 0, 6, 7), "kpi-never": at(12, 0, 6, 7), "kpi-family": at(18, 0, 6, 7), outcomes: at(0, 7, 9, 20), "by-campaign": at(9, 7, 15, 20), ledger: at(0, 27, 24, 28) },
+  widgetLayout: { "kpi-pledged": at(0, 0, 6, 7), "kpi-paid": at(6, 0, 6, 7), "kpi-never": at(12, 0, 6, 7), "kpi-family": at(18, 0, 6, 7), trail: at(0, 7, 24, 15), outcomes: at(0, 22, 9, 20), "by-campaign": at(9, 22, 15, 20), ledger: at(0, 42, 24, 28) },
 };
 
 const integrity: AgPageState = {
@@ -252,6 +256,7 @@ export default function Ledger({ licenseKey, aiEnabled }: { licenseKey?: string;
   const [page, setPage] = useState<"money" | "integrity">("money");
   useEffect(() => { fetch("/api/ledger", { cache: "no-store" }).then((r) => r.json()).then(setData); }, []);
   const studioData = useMemo(() => (data ? buildData(data) : null), [data]);
+  const widgets = useMemo(() => studioWidgets(), []);
   const initialState: AgReportState = useMemo(() => ({ selectedPageId: page, pages: [money, integrity] }), [page]);
 
   return (
@@ -289,10 +294,12 @@ export default function Ledger({ licenseKey, aiEnabled }: { licenseKey?: string;
                 initialState={{ ...initialState, panels: { ai: { collapsed: false, width: 380 } } }}
                 mode="edit"
                 panels={{ edit: { right: ["ai"] } }}
-                ai={({ api }) => createAiHarness(api, { adapter: ledgerAdapter, primary: "lead", promptStarters: PROMPTS })}
+                widgets={widgets}
+                aiToolDisplay={toolDisplay}
+                ai={({ api }) => makeHarness(api, ledgerAdapter, () => data!, PROMPTS)}
               />
             ) : (
-              <AgStudio key={page} style={{ height: "100%", width: "100%" }} theme={theme} data={studioData!} initialState={initialState} mode="view" />
+              <AgStudio key={page} style={{ height: "100%", width: "100%" }} theme={theme} data={studioData!} initialState={initialState} mode="view" widgets={widgets} />
             )}
           </AgStudioProvider>
         </div>

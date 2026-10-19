@@ -103,7 +103,7 @@ Settlement (integer cents) ─► per-donor partial capture, final_capture=true 
 | Move money | — | `settlement.ts`: largest-remainder allocation in integer cents. Everyone pays the same fraction, nobody is over-charged, and totals are exact (property-tested) |
 | Answer donors | **Campaign Q&A**: answers only from verified facts | Facts are written by code from verified extractions |
 | Brief the reviewer | **Investigator notes**: a case summary written after the rules decide | The verdict is final before the notes are written |
-| Ask the ledger | **AG Studio's own agents** filter, chart and summarise the public ledger (turns proxied through `/api/studio-ai`, key stays server-side) | Their tools only change the dashboard view; nothing can touch money |
+| Ask the ledger | **Earmark auditor**, a custom agent built on AG Studio's Agent Framework, fronts the AI panel. It has two tools of its own (`open_case_file`, `trace_pledge`) plus Studio's query tools, and delegates dashboard changes to Studio's built-in lead agent. Turns are proxied through `/api/studio-ai`, so the key stays server-side | Read-only: the auditor and Studio's tools only change the dashboard view; nothing can touch money |
 
 **Safety:**
 - Documents and questions are fenced as untrusted data.
@@ -150,6 +150,12 @@ Earmark supports two PayPal setups, chosen with `PAYEE_MODE`.
 - **A hold gets old?** A daily Render cron job (`/api/cron/holds`) renews each PayPal hold once its 3-day honor period has passed (PayPal only allows that from day 4). It also marks holds that expired, so the page never claims money that can't be collected.
 - **Settled twice?** Settlement first claims the campaign atomically, so a double click or a second tab gets "already being settled". Every capture also carries a `PayPal-Request-Id`, so even a retried request can't charge twice.
 - **The AI is down or out of quota?** AI calls time out after 45s. The bundled sample documents fall back to their answer key, bill lines fall back to keyword rules, and Q&A answers from verified facts. Only brand-new uploads need the AI.
+
+### AG Studio
+
+The public ledger (`/ledger`) is an AG Studio report with two pages (Money, Integrity), six related data sources, KPIs, a donut, stacked columns, grids and a pivot, themed to match Earmark.
+- **Custom widget: Money trail** (`src/components/ledgerStudio.tsx`). It follows pledged money stage by stage (pledged → charged → hospital → pharmacies → never charged) and ends on *Paid to families $0.00 · Guarantee held*. It reads data through the widget API, so page filters and cross-filters apply.
+- **Custom agent: Earmark auditor.** It is built with `directLlmRunner` alongside all five built-in agents, with custom tools defined through `api.defineAiTool`. Ask "Why is Leo's campaign on hold?" and it opens the case file and cites the failed checks. Ask "Trace Grace's $500" and it follows the hold, capture, release and payout with their PayPal IDs.
 
 ### Hosted demo for judges
 
