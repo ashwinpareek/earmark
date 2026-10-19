@@ -54,8 +54,13 @@ export async function POST(req: Request) {
     let output: Out[];
     if (process.env.LEDGER_AI_FAKE === "1") {
       // Development only: proves the Studio ⇄ server protocol without spending tokens.
-      const last = [...(body.input as AnyItem[])].reverse().find((i) => i.type === "message" && i.role === "user");
-      output = [{ id: `msg_${rid()}`, kind: "output", type: "message", role: "assistant", status: "completed", content: [{ type: "text", text: `(fake model) You asked: "${last ? textOf(last).slice(0, 120) : ""}". Studio offered me ${body.tools.length} tools: ${body.tools.slice(0, 6).map((t) => t.name).join(", ")}…`, annotations: [] }] }];
+      const items = body.input as AnyItem[];
+      const lastItem = items[items.length - 1];
+      const last = [...items].reverse().find((i) => i.type === "message" && i.role === "user");
+      const text = (t: string): Out => ({ id: `msg_${rid()}`, kind: "output", type: "message", role: "assistant", status: "completed", content: [{ type: "text", text: t, annotations: [] }] });
+      if (lastItem?.type === "function_call_output") output = [text(`(fake model) The tool returned: ${String(lastItem.output).slice(0, 400)}`)];
+      else if (body.tools.some((t) => t.name === "open_case_file") && last && /case file/i.test(textOf(last))) output = [{ id: `fc_${rid()}`, kind: "output", type: "function_call", callId: `call_${rid()}`, name: "open_case_file", arguments: JSON.stringify({ campaign: "Leo" }), status: "completed" }];
+      else output = [text(`(fake model) You asked: "${last ? textOf(last).slice(0, 120) : ""}". Studio offered me ${body.tools.length} tools: ${body.tools.slice(0, 6).map((t) => t.name).join(", ")}…`)];
     } else if (provider === "gemini") output = await gemini(body, instructions);
     else if (provider === "openai") output = await openai(body, instructions);
     else throw new HttpError(503, provider === "offline" ? "The ledger assistant needs an AI key (GEMINI_API_KEY or OPENAI_API_KEY)." : "The ledger assistant supports Gemini or OpenAI keys.");

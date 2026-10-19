@@ -88,7 +88,9 @@ Then you submit it and try to get paid. You watch the investigation run as a cas
   - The ledger marks a payment *confirmed* only on a **signature-verified PayPal webhook** or an API read-back.
   - Settlement claims a campaign atomically and every capture is idempotent, so a double click can't charge twice.
   - If the AI quota runs out, the demo keeps working.
-- **AG Studio** powers the public ledger: data sources with relationships, KPIs, a donut, a stacked chart, grids and a pivot.
+- **AG Studio** powers the public ledger: six related data sources, KPIs, a donut, a stacked chart, grids and a pivot.
+  - A **custom "Money trail" widget** follows every pledged dollar and ends on *Paid to families $0.00*.
+  - A **custom "Earmark auditor" agent**, built on Studio's Agent Framework, fronts the AI panel. It has its own tools: one opens a campaign's case file, one traces a pledge through PayPal. It delegates chart-building to Studio's built-in agents and can never touch money.
 - **Next.js 15 + React 19 + TypeScript + Zod**, deployable to **Render** with a blueprint.
 
 ## Challenges I ran into
