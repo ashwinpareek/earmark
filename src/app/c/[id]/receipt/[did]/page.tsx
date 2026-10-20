@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getCampaign } from "@/lib/store";
+import { getCampaign, listCampaigns } from "@/lib/store";
+import { MIN_OFFER_CENTS, needsCents, offerOpen } from "@/lib/forward";
 import { provider } from "@/lib/providers";
 import Receipt from "@/components/Receipt";
+import OfferCard from "@/components/OfferCard";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +23,15 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
   const payout = c.movements.find((m) => m.type === "payout" && m.payee === hosp) ?? c.movements.find((m) => m.type === "payout");
   const bill = c.docs.find((x) => x.id === c.billReview?.docId)?.extraction;
   const name = d.anonymous ? "An anonymous donor" : d.donorName;
+  // The other patient's need right now (not when the offer was made): others may have given since.
+  let offer = d.offer;
+  if (offerOpen(offer)) {
+    const all = await listCampaigns([c.space ?? "main"]);
+    const t = all.find((x) => x.id === offer!.campaignId);
+    const mine = Math.round(Number(offer.amount) * 100);
+    const now = t && t.status === "live" ? needsCents(t, all) + mine : 0; // this offer's own place counts as available to its donor
+    offer = now < Math.min(mine, MIN_OFFER_CENTS) ? { ...offer, status: "declined" as const, needs: "0" } : { ...offer, needs: (now / 100).toFixed(2), amount: (Math.min(mine, now) / 100).toFixed(2) };
+  }
   return (
     <div className="wrap" style={{ maxWidth: 640, padding: "40px 24px 20px" }}>
       <p className="small muted"><Link href={`/c/${c.id}`}>{c.title}</Link></p>
@@ -32,10 +43,13 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
           <li><span>Pledge held on PayPal</span><span className="tiny">{hold?.paypalId ?? "—"}{ok(hold)}</span></li>
           {d.status !== "held" && <li><span>Bill verified{bill?.documentNumber ? ` (${bill.documentNumber})` : ""}</span><span className="tiny">{c.billReview ? `${money(c.billReview.payable, c.currency)} payable` : "—"}</span></li>}
           {capture && <li><span>Your share captured</span><span className="tiny">{capture.paypalId}{ok(capture)}</span></li>}
-          {d.status !== "held" && <li><span>Rest of your pledge released</span><span className="tiny">{money(d.neverCharged ?? 0, c.currency)}, never charged</span></li>}
+          {d.status !== "held" && <li><span>Rest of your pledge released</span><span className="tiny">{money(d.neverCharged ?? 0, c.currency)}, never charged{capture ? ` (${d.authorizationId}, closed)` : ""}</span></li>}
           {payout && <li><span>Paid directly to {hosp}</span><span className="tiny">{payout.paypalId}{ok(payout)}</span></li>}
+          {d.status !== "held" && <li><span>Held by Earmark</span><span className="tiny">{money(0, c.currency)}</span></li>}
         </ul>
       </div>
+      {d.forwardedFrom && <p className="small" style={{ marginTop: 14 }}>You passed this on from what <Link href={`/c/${d.forwardedFrom.campaignId}`}>{d.forwardedFrom.patient}&apos;s bill</Link> didn&apos;t need.</p>}
+      {offer && <div style={{ marginTop: 18 }}><OfferCard offer={offer} covered={offer.status === "declined" && d.offer?.status === "open"} campaignId={c.id} donationId={d.id} fromPatient={c.patient.displayName} currency={c.currency} /></div>}
       <p className="tiny muted" style={{ marginTop: 14 }}>No money from this pledge was paid to the family or the campaign organizer.</p>
     </div>
   );

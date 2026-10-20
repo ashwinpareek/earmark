@@ -427,3 +427,13 @@ table.lines tfoot td { font-weight: 800; border-bottom: none; }
 .mt-val { font-weight: 800; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 .mt-stages li.fam .mt-lbl, .mt-stages li.fam .mt-val { color: var(--paid); }
 .mt-ok { margin-left: 8px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; border: 2px solid currentColor; border-radius: 5px; padding: 1px 6px; }
+
+/* Pass it on: the pledge-time choice, the offer on a receipt, the next patient */
+.surplus { border: 1px solid var(--rule); border-radius: var(--r-s); padding: 10px 12px 12px; margin: 0; display: grid; gap: 8px; }
+.surplus legend { font-size: 13px; font-weight: 600; color: var(--ink-2); padding: 0 4px; }
+.surplus .check-line { align-items: flex-start; }
+.surplus .check-line input { margin-top: 3px; }
+.surplus .check-line > span { display: grid; gap: 2px; }
+.card.offer { border-color: var(--paid); }
+.next-patient { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--rule); display: grid; gap: 10px; justify-items: start; }
+.surplus input[type="radio"] { width: auto; flex: none; }

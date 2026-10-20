@@ -403,6 +403,62 @@ record(p, base(evidence=ev(patientName=lr_name, patientDob=lr_dob, patientAge=lr
                providerRegistrationNo=FAKE["reg"], patientName="Leo Martin", patientAge=35, patientDob="1991-05-14",
                documentNumber="RCH-5531904", documentDate="2026-10-03"))
 
+# ─────────────────────────── Aarav: a second honest family ───────────────────────────
+# Another verified patient at the same hospital. Donors whose pledge to Maya wasn't fully
+# needed can choose to help him with a NEW PayPal hold (never by reusing the old one).
+aarav_rows = [
+    ("Surgeon fee — tonsillectomy and adenoidectomy", 1, 760.00),
+    ("Anaesthesia services", 1, 420.00),
+    ("Operating room, up to 60 minutes", 1, 380.00),
+    ("Paediatric day-surgery bed", 1, 190.00),
+    ("Medications (estimated)", 1, 50.00),
+]
+img, d = page()
+a_phone, a_reg = letterhead(d, RIVERSIDE)
+d.text((80, 230), "Patient Cost Estimate", font=BOLD(40), fill=INK)
+d.text((80, 286), "Amounts shown are the patient's responsibility after the insurer's pre-authorisation.", font=REG(19), fill=MUTED)
+a_num = kv(d, 80, 350, "Estimate no.", "EST-2026-08907")
+a_date = kv(d, 80, 386, "Date issued", "6 October 2026")
+kv(d, 80, 422, "Valid until", "31 December 2026")
+a_name = kv(d, 660, 350, "Patient", "Aarav Shah", 130)
+a_age = kv(d, 660, 386, "Age / DOB", "6  ·  19 Jan 2020", 130)
+kv(d, 660, 422, "MRN", "RCH-5532218", 130)
+kv(d, 80, 480, "Procedure", "Tonsillectomy and adenoidectomy")
+kv(d, 80, 516, "Diagnosis", "Obstructive sleep apnoea (ICD-10 G47.33)")
+y, a_total = table(d, 590, aarav_rows, "Patient responsibility", 1800.00,
+          extra=[("Gross charges", 6400.00), ("Insurer pre-authorised", 4600.00)])
+d.text((80, y + 10), "This is an estimate, not a bill. Final charges depend on the care provided.", font=REG(18), fill=MUTED)
+d.text((80, y + 40), "Payments: patient accounts office, quoting the estimate number.", font=REG(18), fill=MUTED)
+signature(d, 80, y + 120, "Dana Whitfield", "Patient Financial Services")
+stamp(img, "RIVERSIDE CHILDREN'S", "BILLING OFFICE · AUSTIN", (760, y + 90))
+p = finish(img, "aarav-estimate.png")
+record(p, base(evidence=ev(total=a_total, documentNumber=a_num, documentDate=a_date, patientName=a_name, patientAge=a_age, patientDob=a_age, providerPhone=a_phone, providerRegistrationNo=a_reg),
+               docType="estimate", providerName=RIVERSIDE["name"], providerAddress=RIVERSIDE["address"],
+               providerPhone=RIVERSIDE["phone"], providerRegistrationNo=RIVERSIDE["reg"], patientName="Aarav Shah",
+               patientAge=6, patientDob="2020-01-19", documentNumber="EST-2026-08907", documentDate="2026-10-06",
+               procedure="Tonsillectomy and adenoidectomy", diagnosis="Obstructive sleep apnoea (G47.33)",
+               lineItems=[dict(description=r[0], quantity=r[1], amount=r[2]) for r in aarav_rows],
+               subtotal=1800.00, insuranceCovered=4600.00, total=1800.00))
+
+img, d = page()
+letterhead(d, RIVERSIDE)
+d.text((80, 230), "Patient Registration Card", font=BOLD(40), fill=INK)
+d.rounded_rectangle((80, 310, W - 80, 760), radius=24, outline=RULE, width=3)
+ar_name = kv(d, 120, 350, "Patient name", "Aarav Shah", 260)
+ar_dob = kv(d, 120, 400, "Date of birth", "19 January 2020 (age 6)", 260)
+kv(d, 120, 450, "Sex", "Male", 260)
+ar_mrn = kv(d, 120, 500, "MRN", "RCH-5532218", 260)
+kv(d, 120, 550, "Guardian", "Priya Shah (mother)", 260)
+kv(d, 120, 600, "Registered", "5 October 2026, outpatient clinic", 260)
+kv(d, 120, 650, "Primary insurer", "Lone Star Family Health · Plan F-1180", 260)
+d.rectangle((W - 330, 350, W - 120, 600), outline=RULE, width=2)
+d.text((W - 225, 475), "photo", font=REG(18), fill=MUTED, anchor="mm")
+stamp(img, "REGISTERED", "ADMISSIONS DESK", (760, 640), color=(0, 110, 80))
+p = finish(img, "aarav-registration.png")
+record(p, base(evidence=ev(patientName=ar_name, patientDob=ar_dob, patientAge=ar_dob, documentNumber=ar_mrn), docType="identity", providerName=RIVERSIDE["name"], providerAddress=RIVERSIDE["address"],
+               providerPhone=RIVERSIDE["phone"], providerRegistrationNo=RIVERSIDE["reg"], patientName="Aarav Shah",
+               patientAge=6, patientDob="2020-01-19", documentNumber="RCH-5532218", documentDate="2026-10-05"))
+
 with open(os.path.join(ROOT, "src", "lib", "sample-extractions.json"), "w") as f:
     json.dump(manifest, f, indent=2)
 print("wrote", len(manifest), "samples")

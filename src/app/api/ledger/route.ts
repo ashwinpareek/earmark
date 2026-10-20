@@ -24,6 +24,7 @@ export async function GET() {
     const donations = cs.flatMap((c) => c.donations.filter((d) => d.status !== "pending").map((d) => ({
       id: d.id, campaignId: c.id, donor: d.anonymous ? "Anonymous" : d.donorName, status: d.status, pledged: Number(d.pledged),
       charged: Number(d.captured ?? 0), neverCharged: Number(d.neverCharged ?? (d.status === "held" ? 0 : 0)), date: d.createdAt.slice(0, 10),
+      leftover: d.surplus === "offer" ? "Offer another patient" : "Release", passedOn: d.offer?.status === "accepted" ? d.offer.patient : "",
     })));
     const movements = cs.flatMap((c) => c.movements.map((m) => ({
       id: m.id, campaignId: c.id, type: m.type, amount: Number(m.amount), currency: m.currency, paypalId: m.paypalId, status: m.status,

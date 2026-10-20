@@ -9,6 +9,8 @@ import Receipt from "./Receipt";
 import EvidenceView from "./EvidenceView";
 
 type Status = { paypal: "sandbox" | "mock"; paypalClientId: string | null; ai: string; model: string };
+type Next = { id: string; title: string; patient: string; hospital: string; needs: string } | null;
+type View = CampaignView & { next?: Next };
 
 const money = (v: number | string, c = "USD") => new Intl.NumberFormat("en-US", { style: "currency", currency: c }).format(Number(v));
 const cents = (v?: string | number) => Math.round(Number(v ?? 0) * 100);
@@ -31,7 +33,7 @@ export default function CampaignRoom({ id }: { id: string }) {
   const router = useRouter();
   const params = useSearchParams();
   const role = (["organizer", "hospital", "reviewer"].includes(params.get("role") ?? "") ? params.get("role") : "donor") as Role;
-  const [c, setC] = useState<CampaignView | null>(null);
+  const [c, setC] = useState<View | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [err, setErr] = useState("");
   const firstLoad = useRef(true);
@@ -57,7 +59,7 @@ export default function CampaignRoom({ id }: { id: string }) {
         setErr(msg);
         throw new Error(msg);
       }
-      if (j && j.id && j.docs) setC(j);
+      if (j && j.id && j.docs) setC((old) => ({ ...j, next: old?.next ?? null }));
       return j;
     },
     [id, role],
@@ -283,36 +285,69 @@ function MoneyCard({ c, held, donors, goal }: { c: CampaignView; held: number; d
   );
 }
 
-function DonatePanel({ c, status, act, reload }: { c: CampaignView; status: Status | null; act: (b: Record<string, unknown>) => Promise<unknown>; reload: () => Promise<void> }) {
-  const [amount, setAmount] = useState("50");
+function NextPatient({ next, cur, lead }: { next?: Next; cur: string; lead: string }) {
+  if (!next) return null;
+  return (
+    <div className="next-patient">
+      <p className="small">{lead} <strong>{next.patient}</strong>{next.hospital ? <> at {next.hospital}</> : null} is verified and still needs <b className="num">{money(next.needs, cur)}</b>.</p>
+      <Link className="btn sm" href={`/c/${next.id}`}>Help {next.patient.split(" ")[0]}</Link>
+    </div>
+  );
+}
+
+function DonatePanel({ c, status, act, reload }: { c: View; status: Status | null; act: (b: Record<string, unknown>) => Promise<unknown>; reload: () => Promise<void> }) {
+  const params = useSearchParams();
+  // Arriving from another campaign's receipt: "Give the $50 Maya's bill didn't need to Aarav".
+  const from = params.get("from")?.split(".") ?? [];
+  const give = params.get("give") ?? "";
+  const fromOffer = from.length === 2 && /^\d+(\.\d{1,2})?$/.test(give) ? { campaignId: from[0], donationId: from[1] } : null;
+  const fromPatient = params.get("for") ?? "";
+  const [amount, setAmount] = useState(fromOffer ? give : "50");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [anon, setAnon] = useState(false);
   const [msg, setMsg] = useState("");
+  const [surplus, setSurplus] = useState<"release" | "offer">("release");
   const [done, setDone] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const donation = useRef<string>("");
   const cur = c.currency;
+  const held = c.donations.filter((d) => d.status === "held").reduce((t, d) => t + cents(d.pledged), 0);
+  const full = c.status === "live" && held >= cents(c.goal) && !fromOffer;
 
-  if (c.status !== "live") {
-    const why = {
-      needs_review: "",
-      verifying: "The documents are being checked.",
-      bill_review: "The final bill is being checked. Pledges are closed.",
-      bill_needs_review: "A reviewer is checking the final bill. Pledges are closed.",
-      settling: "The hospital is being paid.",
-      settled: "The bill has been paid. Thank you to everyone who pledged.",
-      cancelled: "The family cancelled this campaign. Every pledge was released.",
-      rejected: "",
-    }[c.status as string];
-    return why ? <div className="card"><p className="small">{why}</p></div> : null;
+  if (c.status !== "live" || full) {
+    const why = full
+      ? `${c.patient.displayName}'s bill is fully pledged. Thank you!`
+      : {
+          needs_review: "",
+          verifying: "The documents are being checked.",
+          bill_review: "The final bill is being checked. Pledges are closed.",
+          bill_needs_review: "A reviewer is checking the final bill. Pledges are closed.",
+          settling: "The hospital is being paid.",
+          settled: "The bill has been paid. Thank you to everyone who pledged.",
+          cancelled: "The family cancelled this campaign. Every pledge was released.",
+          rejected: "",
+        }[c.status as string];
+    if (!why) return null;
+    return (
+      <div className="card">
+        <p className="small">{why}</p>
+        {(full || c.status === "settled") && <NextPatient next={c.next} cur={cur} lead="Another family needs help:" />}
+      </div>
+    );
   }
 
-  const valid = /^\d+(\.\d{1,2})?$/.test(amount) && Number(amount) >= 1 && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
+  const max = fromOffer ? Number(give) : Infinity;
+  const valid = /^\d+(\.\d{1,2})?$/.test(amount) && Number(amount) >= 1 && Number(amount) <= max && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
 
   return (
     <div className="card">
-      <h3>Pledge</h3>
+      <h3>{fromOffer ? "Pass it on" : "Pledge"}</h3>
+      {fromOffer && !done && (
+        <p className="note small" style={{ marginBottom: 12 }}>
+          {fromPatient ? <>{fromPatient}&apos;s bill</> : "The other bill"} didn&apos;t need {money(give, cur)} of your pledge, and it was never charged. You can give up to that here. It&apos;s a <strong>new PayPal hold</strong> that you approve now: Earmark never reuses an old one.
+        </p>
+      )}
       {done ? (
         <div className="stack">
           <p className="small"><strong>Thank you{name ? `, ${name.split(" ")[0]}` : ""}.</strong> {money(done, cur)} is held on your PayPal. You&apos;ll only be charged your share of the verified bill, and it goes straight to {c.provider?.name}.</p>
@@ -320,19 +355,26 @@ function DonatePanel({ c, status, act, reload }: { c: CampaignView; status: Stat
         </div>
       ) : (
         <div className="stack">
-          <div className="amounts" role="group" aria-label="Amount">
-            {["25", "50", "100", "250"].map((a) => (
-              <button key={a} aria-pressed={amount === a} onClick={() => setAmount(a)}>{money(a, cur).replace(".00", "")}</button>
-            ))}
-          </div>
-          <label className="field">Amount ({cur})<input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.trim())} /></label>
+          {!fromOffer && (
+            <div className="amounts" role="group" aria-label="Amount">
+              {["25", "50", "100", "250"].map((a) => (
+                <button key={a} aria-pressed={amount === a} onClick={() => setAmount(a)}>{money(a, cur).replace(".00", "")}</button>
+              ))}
+            </div>
+          )}
+          <label className="field">Amount ({cur}){fromOffer ? `, up to ${money(give, cur)}` : ""}<input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.trim())} /></label>
           <div className="two">
             <label className="field">Your name<input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" /></label>
             <label className="field">Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></label>
           </div>
           <label className="field">Message (optional)<input value={msg} maxLength={280} onChange={(e) => setMsg(e.target.value)} /></label>
           <label className="check-line"><input type="checkbox" checked={anon} onChange={(e) => setAnon(e.target.checked)} /> Show my pledge as anonymous</label>
-          <p className="tiny muted">PayPal holds your pledge; you&apos;re not charged now. If the campaign is cancelled or the bill is smaller, the rest is released. Holds last up to 29 days, which suits urgent treatment; if the bill comes later, Earmark asks you to renew.</p>
+          <fieldset className="surplus">
+            <legend>If the final bill is lower than expected</legend>
+            <label className="check-line"><input type="radio" name="surplus" checked={surplus === "release"} onChange={() => setSurplus("release")} /> <span><b>Release the rest — don&apos;t charge me</b> <span className="tiny muted">(recommended)</span></span></label>
+            <label className="check-line"><input type="radio" name="surplus" checked={surplus === "offer"} onChange={() => setSurplus("offer")} /> <span><b>Offer me another verified patient</b><span className="tiny muted"> I&apos;ll approve it myself, as a new pledge. Nothing moves without my click.</span></span></label>
+          </fieldset>
+          <p className="tiny muted">This is a hold on your PayPal, not a payment. You&apos;re charged only your share of the hospital&apos;s verified final bill, never more than you pledge. Anything unused is released. Earmark never holds your money. Holds last up to 29 days, which suits urgent treatment.</p>
           {valid && status ? (
             <PayPalHold
               mode={status.paypal}
@@ -340,7 +382,7 @@ function DonatePanel({ c, status, act, reload }: { c: CampaignView; status: Stat
               currency={cur}
               amountLabel={money(amount, cur)}
               createOrder={async () => {
-                const r = (await act({ action: "donate_create", donorName: name || "A friend", donorEmail: email, amount, anonymous: anon, message: msg })) as { orderId: string; donationId: string };
+                const r = (await act({ action: "donate_create", donorName: name || "A friend", donorEmail: email, amount, anonymous: anon, message: msg, surplus, ...(fromOffer ? { fromOffer } : {}) })) as { orderId: string; donationId: string };
                 donation.current = r.donationId;
                 return r.orderId;
               }}
@@ -350,14 +392,14 @@ function DonatePanel({ c, status, act, reload }: { c: CampaignView; status: Stat
               }}
             />
           ) : (
-            <p className="tiny muted">Enter an amount and your email to continue with PayPal.</p>
+            <p className="tiny muted">{fromOffer && Number(amount) > max ? `This offer is for up to ${money(give, cur)}.` : "Enter an amount and your email to continue with PayPal."}</p>
           )}
-          {status?.paypal === "mock" && (
+          {status?.paypal === "mock" && !fromOffer && (
             <button className="btn ghost sm" disabled={busy} onClick={async () => { setBusy(true); try { await act({ action: "simulate_donors" }); await reload(); } finally { setBusy(false); } }}>
               {busy ? "Adding donors…" : "Add 8 simulated donors (mock mode)"}
             </button>
           )}
-          {status?.paypal === "mock" && c.donations.some((d) => d.status === "held") && (
+          {status?.paypal === "mock" && !fromOffer && c.donations.some((d) => d.status === "held") && (
             <button className="btn ghost sm" disabled={busy} onClick={async () => { setBusy(true); try { await act({ action: "simulate_expired_hold" }); await reload(); } finally { setBusy(false); } }}>
               Expire one hold (test settlement)
             </button>
@@ -637,9 +679,20 @@ function Settlement({ c, hosp, act }: { c: CampaignView; hosp: string; act: (b: 
             {(s.payees?.length ? s.payees : [{ name: hosp, amount: s.captured }]).map((p) => (
               <div key={p.name}><i style={{ background: "var(--paid)" }} /><span>Paid directly to {p.name} {!s.direct && <Confirmed m={payoutFor(p.name)} />}</span><b>{money(p.amount, c.currency)}</b></div>
             ))}
-            <div><i style={{ background: "var(--never-fill)" }} /><span>Never charged to donors</span><b>{money(s.neverCharged, c.currency)}</b></div>
+            <div><i style={{ background: "var(--never-fill)" }} /><span>Released, never charged to donors</span><b>{money(s.neverCharged, c.currency)}</b></div>
             <div><i style={{ background: "var(--muted)" }} /><span>Paid to the family</span><b>{money(0, c.currency)}</b></div>
+            <div><i style={{ background: "var(--muted)" }} /><span>Held by Earmark</span><b>{money(0, c.currency)}</b></div>
           </div>
+          {(() => {
+            const offers = c.donations.filter((d) => d.offer);
+            if (!offers.length) return null;
+            const passed = offers.filter((d) => d.offer!.status === "accepted");
+            return (
+              <p className="small" style={{ marginTop: 12 }}>
+                <strong>Pass it on.</strong> {offers.length} donor{offers.length > 1 ? "s" : ""} asked, when pledging, to be offered another patient with what this bill didn&apos;t need. Their receipts offer {[...new Set(offers.map((d) => d.offer!.patient))].join(" and ")} at the same hospital, as a new PayPal hold each donor approves{passed.length ? `; ${passed.length} already passed it on` : ""}. Nothing moves without their click.
+              </p>
+            );
+          })()}
           {(s.lapsed ?? 0) > 0 && (
             <p className="small" style={{ marginTop: 12 }}>
               <strong>{s.lapsed} pledge{s.lapsed! > 1 ? "s" : ""} couldn&apos;t be collected</strong> (the PayPal hold had expired or was declined). {s.lapsed! > 1 ? "Those donors were" : "That donor was"} not charged, and the share was spread across the other pledges.

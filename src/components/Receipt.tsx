@@ -18,7 +18,7 @@ export default function Receipt(props: { donor: string; pledged: number; paid: n
         ) : (
           <>
             <div><i style={{ background: "var(--paid)" }} /><span>Paid to {props.hospital}</span><b>{usd(paid, currency)}</b></div>
-            <div><i style={{ background: "var(--never-fill)" }} /><span>Never charged</span><b>{usd(never, currency)}</b></div>
+            <div><i style={{ background: "var(--never-fill)" }} /><span>Released, never charged</span><b>{usd(never, currency)}</b></div>
           </>
         )}
       </div>
