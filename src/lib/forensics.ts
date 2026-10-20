@@ -127,7 +127,12 @@ export function duplicateChecks(docs: Doc[], campaignId: string, prior: PriorDoc
     const fp = e ? fingerprintOf(e) : "";
     const reused = fp ? others.filter((p) => p.fingerprint === fp && p.sha256 !== d.sha256) : [];
     // A re-saved, re-scanned or cropped copy: different bytes, same picture.
-    const lookalike = others.filter((p) => p.sha256 !== d.sha256 && looksAlike(p.phash, d.phash));
+    // Two genuine patients at one hospital get the same printed form, which can look ~98% alike
+    // (a sparse registration card is mostly template). So a look-alike counts as a copy only when
+    // it is about the same patient, or the patient can't be read. A copy with the name edited is
+    // still caught: by its reused document number here, or by the hospital's own confirmation.
+    const key = e?.patientName ? patientKey(e.patientName) : "";
+    const lookalike = others.filter((p) => p.sha256 !== d.sha256 && looksAlike(p.phash, d.phash) && (!key || !p.patientKey || p.patientKey === key));
     const camps = new Set([...sameFile, ...reused, ...lookalike].map((p) => p.campaignId));
     if (!camps.size) continue;
     ids.push(d.id);

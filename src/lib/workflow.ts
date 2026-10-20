@@ -9,6 +9,7 @@ import { looksAlike, visualHash } from "./phash";
 import { reviewBill } from "./reconcile";
 import { careRoom, reviewReceipt } from "./care";
 import { planCaptures } from "./settlement";
+import { GOAL_BUFFER, MIN_OFFER_CENTS, OFFER_DAYS, nextPatients, offerOpen, offeredCents, planOffers } from "./forward";
 import { answerQuestion } from "./agents";
 import * as paypal from "./paypal";
 import { appBaseUrl, fmtMoney, fromCents, nowIso, toCents, uid } from "./util";
@@ -16,7 +17,9 @@ import { appBaseUrl, fmtMoney, fromCents, nowIso, toCents, uid } from "./util";
 // The campaign state machine. Every transition is guarded and written to the campaign
 // timeline; every money movement is recorded with its PayPal ID for the public ledger.
 
-const MAX_OVERPLEDGE = 1.25; // pledges may exceed the goal by 25%: unneeded holds are simply released
+// Pledges close at the verified goal plus a 10% buffer (holds can lapse or be declined). Late
+// donors are pointed to the next verified patient instead, so surplus mostly never forms.
+const MAX_OVERPLEDGE = GOAL_BUFFER;
 
 function needProvider(id: string) {
   const p = getProvider(id);
@@ -214,17 +217,53 @@ export async function reviewerDecideCampaign(id: string, approve: boolean, note:
 
 // ─── Donations (PayPal holds) ─────────────────────────────────────
 
-export async function createDonationOrder(id: string, d: { donorName: string; donorEmail: string; amount: string; anonymous: boolean; message: string }) {
+export type PledgeInput = {
+  donorName: string;
+  donorEmail: string;
+  amount: string;
+  anonymous: boolean;
+  message: string;
+  surplus?: "release" | "offer";
+  /** Accepting a "pass it on" offer from another campaign's receipt. */
+  fromOffer?: { campaignId: string; donationId: string };
+};
+
+export async function createDonationOrder(id: string, d: PledgeInput) {
   const c = await getCampaign(id);
   if (!c) throw new HttpError(404, "Campaign not found");
   expect(c, "live");
   const cents = toCents(d.amount);
   if (cents < 100) throw new HttpError(400, "The minimum donation is 1.00");
+  let forwardedFrom: Donation["forwardedFrom"];
+  let reserved = 0;
+  if (d.fromOffer) {
+    const src = await getCampaign(d.fromOffer.campaignId);
+    const sd = src?.donations.find((x) => x.id === d.fromOffer!.donationId);
+    if (!src || !sd || !offerOpen(sd.offer) || sd.offer.campaignId !== c.id) throw new HttpError(409, "That offer has expired or was already used. You can still pledge here as a new gift.");
+    if (cents > toCents(sd.offer.amount)) throw new HttpError(400, `This offer is for up to ${fmtMoney(sd.offer.amount, c.currency)}.`);
+    forwardedFrom = { campaignId: src.id, donationId: sd.id, patient: src.patient.displayName };
+    reserved = toCents(sd.offer.amount);
+  }
   const pledged = c.donations.filter((x) => x.status === "held").reduce((s, x) => s + toCents(x.pledged), 0);
-  const room = Math.floor(toCents(c.goal) * MAX_OVERPLEDGE) - pledged;
-  if (room <= 0) throw new HttpError(409, "This campaign has all the pledges it can use. Thank you!");
+  // Open offers from other receipts keep their place; an accepted offer uses its own place.
+  const offered = offeredCents(c.id, await listCampaigns([spaceOf(c)]));
+  // Pledges close once the goal is reached; the pledge that crosses it may overshoot by up to
+  // 10%, a buffer for holds that later lapse.
+  const room = pledged >= toCents(c.goal) && !reserved ? 0 : Math.floor(toCents(c.goal) * MAX_OVERPLEDGE) - pledged - offered + reserved;
+  if (room <= 0) throw new HttpError(409, "This campaign is fully pledged. Thank you! Another verified patient may still need help.");
   if (cents > room) throw new HttpError(409, `This campaign can use at most ${fmtMoney(fromCents(room), c.currency)} more.`);
-  const donation: Donation = { id: uid("don"), donorName: d.donorName.trim() || "A friend", donorEmail: d.donorEmail.trim(), anonymous: d.anonymous, message: d.message.trim().slice(0, 280), pledged: fromCents(cents), status: "pending", createdAt: nowIso() };
+  const donation: Donation = {
+    id: uid("don"),
+    donorName: d.donorName.trim() || "A friend",
+    donorEmail: d.donorEmail.trim(),
+    anonymous: d.anonymous,
+    message: d.message.trim().slice(0, 280),
+    pledged: fromCents(cents),
+    status: "pending",
+    createdAt: nowIso(),
+    surplus: d.surplus === "offer" ? "offer" : "release",
+    ...(forwardedFrom ? { forwardedFrom } : {}),
+  };
   const base = appBaseUrl();
   const order = await paypal.createAuthorizeOrder({
     amount: donation.pledged,
@@ -251,15 +290,74 @@ export async function confirmDonation(id: string, donationId: string, orderId: s
   if (d0.status === "held") return c;
   if (d0.orderId !== orderId) throw new HttpError(400, "Order doesn't belong to this donation");
   const auth = await paypal.authorizeOrder(orderId);
-  return updateCampaign(id, (cc) => {
+  const out = await updateCampaign(id, (cc) => {
     const d = cc.donations.find((x) => x.id === donationId)!;
     d.status = "held";
     d.authorizationId = auth.authorizationId;
     d.authorizationExpiresAt = auth.expiresAt;
     d.authorizedAt = nowIso();
-    cc.movements.push({ id: uid("mv"), type: "hold", amount: d.pledged, currency: cc.currency, paypalId: auth.authorizationId, status: auth.status, donationId: d.id, at: nowIso(), note: "Held on the donor's PayPal, not charged" });
-    addEvent(cc, { actor: "paypal", kind: "donation.held", message: `${d.anonymous ? "An anonymous donor" : d.donorName} pledged ${fmtMoney(d.pledged, cc.currency)}. It's held on their PayPal, not charged.` });
-    return cc;
+    cc.movements.push({ id: uid("mv"), type: "hold", amount: d.pledged, currency: cc.currency, paypalId: auth.authorizationId, status: auth.status, donationId: d.id, at: nowIso(), note: d.forwardedFrom ? `New hold, passed on from ${d.forwardedFrom.patient}'s campaign` : "Held on the donor's PayPal, not charged" });
+    const who = d.anonymous ? "An anonymous donor" : d.donorName;
+    addEvent(cc, {
+      actor: "paypal",
+      kind: "donation.held",
+      message: d.forwardedFrom
+        ? `${who} passed on ${fmtMoney(d.pledged, cc.currency)} that ${d.forwardedFrom.patient}'s bill didn't need. It's a new PayPal hold, approved by the donor, not charged yet.`
+        : `${who} pledged ${fmtMoney(d.pledged, cc.currency)}. It's held on their PayPal, not charged.`,
+    });
+    return structuredClone(cc);
+  });
+  const fwd = out.donations.find((x) => x.id === donationId)?.forwardedFrom;
+  if (fwd) {
+    await updateCampaign(fwd.campaignId, (src) => {
+      const sd = src.donations.find((x) => x.id === fwd.donationId);
+      if (sd?.offer) {
+        sd.offer.status = "accepted";
+        sd.offer.acceptedDonationId = donationId;
+      }
+    }).catch(() => undefined);
+  }
+  return out;
+}
+
+/** The donor said "No thanks" to the offer on their receipt. Nothing is charged either way. */
+export async function declineOffer(id: string, donationId: string) {
+  return updateCampaign(id, (c) => {
+    const d = c.donations.find((x) => x.id === donationId);
+    if (!d?.offer) throw new HttpError(404, "No offer on this pledge");
+    if (d.offer.status === "open") d.offer.status = "declined";
+    return c;
+  });
+}
+
+/** Another verified patient a donor could help instead, e.g. when this campaign is fully pledged. */
+export async function nextPatientFor(c: Campaign) {
+  const all = await listCampaigns([spaceOf(c)]);
+  const n = nextPatients(c, all)[0];
+  return n ? { id: n.c.id, title: n.c.title, patient: n.c.patient.displayName, hospital: getProvider(n.c.providerId)?.name ?? "", needs: fromCents(n.needs) } : null;
+}
+
+/** After settlement: donors who chose "offer me another patient" get one offer each, on their
+ *  receipt, for at most what the bill didn't need and at most what the other patient still needs. */
+async function makeOffers(id: string) {
+  const c = await getCampaign(id);
+  if (!c) return;
+  const wanting = c.donations.filter((d) => d.surplus === "offer" && !d.offer && (d.status === "captured" || d.status === "voided") && toCents(d.neverCharged ?? "0") >= MIN_OFFER_CENTS);
+  if (!wanting.length) return;
+  const all = await listCampaigns([spaceOf(c)]);
+  const targets = nextPatients(c, all);
+  if (!targets.length) return;
+  const plan = planOffers(wanting.map((d) => ({ id: d.id, neverChargedCents: toCents(d.neverCharged ?? "0") })), targets.map((t) => ({ id: t.c.id, needsCents: t.needs })));
+  if (!plan.length) return;
+  const expiresAt = new Date(Date.now() + OFFER_DAYS * 864e5).toISOString();
+  await updateCampaign(id, (cc) => {
+    for (const p of plan) {
+      const t = targets.find((x) => x.c.id === p.targetId)!.c;
+      const d = cc.donations.find((x) => x.id === p.donorId)!;
+      d.offer = { campaignId: t.id, patient: t.patient.displayName, hospital: getProvider(t.providerId)?.name ?? "", amount: fromCents(p.amountCents), needs: fromCents(p.needsCents), expiresAt, status: "open", at: nowIso() };
+    }
+    const names = [...new Set(plan.map((p) => targets.find((x) => x.c.id === p.targetId)!.c.patient.displayName))].join(" and ");
+    addEvent(cc, { actor: "system", kind: "offers.made", message: `${plan.length} donor${plan.length > 1 ? "s" : ""} asked to be offered another patient with what the bill didn't need. Their receipts now offer ${names}, as a new PayPal hold they approve themselves. Nothing was charged; Earmark holds nothing.` });
   });
 }
 
@@ -278,12 +376,13 @@ export async function simulateExpiredHold(id: string) {
 
 export async function simulateDonors(id: string) {
   if (paypal.paypalMode() !== "mock") throw new HttpError(400, "Simulated donors are only available in mock mode. Donate with a PayPal sandbox account instead.");
-  const people = [["Ananya", "120.00"], ["Tom", "50.00"], ["Grace", "500.00"], ["Rahul", "250.00"], ["Lucia", "75.00"], ["Coworkers at Hollis & Co.", "1200.00"], ["Sam", "40.00"], ["Mei", "365.00"]];
-  for (const [name, amt] of people) {
+  // [name, amount, what to do with any part the bill doesn't need]
+  const people: [string, string, "release" | "offer"][] = [["Ananya", "120.00", "release"], ["Tom", "50.00", "release"], ["Grace", "500.00", "offer"], ["Rahul", "250.00", "release"], ["Lucia", "75.00", "release"], ["Coworkers at Hollis & Co.", "1200.00", "offer"], ["Sam", "40.00", "release"], ["Mei", "365.00", "offer"]];
+  for (const [name, amt, surplus] of people) {
     const c = await getCampaign(id);
     if (!c || c.status !== "live") break;
     try {
-      const o = await createDonationOrder(id, { donorName: name, donorEmail: `${name.split(" ")[0].toLowerCase()}@example.com`, amount: amt, anonymous: false, message: "" });
+      const o = await createDonationOrder(id, { donorName: name, donorEmail: `${name.split(" ")[0].toLowerCase()}@example.com`, amount: amt, anonymous: false, message: "", surplus });
       await confirmDonation(id, o.donationId, o.orderId);
     } catch {
       break;
@@ -489,7 +588,7 @@ export async function settle(id: string): Promise<Campaign> {
     }
   }
 
-  return updateCampaign(id, (cc) => {
+  const done = await updateCampaign(id, (cc) => {
     const pledgedTotal = held.reduce((s, d) => s + toCents(d.pledged), 0);
     cc.settlement = {
       payable: fromCents(billCents + careCents),
@@ -515,8 +614,10 @@ export async function settle(id: string): Promise<Campaign> {
         ? `Collected ${fmtMoney(fromCents(capturedCents), cc.currency)} from ${held.length} donors, but the payout failed (${payoutError}). The money is safe; retry from the hospital view.`
         : `Settled: ${who || "nothing owed"}${direct ? ", captured straight into the provider's PayPal" : ""}. ${fmtMoney(fromCents(pledgedTotal - capturedCents), cc.currency)} of pledges was never charged.${billCents + careCents > capturedCents ? ` Pledges fell ${fmtMoney(fromCents(billCents + careCents - capturedCents), cc.currency)} short of the verified costs; the hospital was paid first.` : ""}`,
     });
-    return cc;
+    return structuredClone(cc);
   });
+  await makeOffers(id).catch(() => undefined);
+  return (await getCampaign(id)) ?? done;
 }
 
 export async function retryPayout(id: string) {

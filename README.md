@@ -59,8 +59,9 @@ Open the app and work through the three demo campaigns on the home page, then th
 - Every donor pays the same **90.8%** of their pledge:
   - **$2,295** goes to the hospital and **$64.50** to the pharmacy, both paid directly;
   - **$240.50** is never charged;
-  - **$0** goes to the family.
+  - **$0** goes to the family, and **$0** is held by Earmark.
 - Each donor gets a receipt with PayPal IDs.
+- **Pass it on.** Grace, Mei and the coworkers chose *"Offer me another verified patient"* when they pledged. Their receipts now offer **Aarav**, another verified patient at the same hospital: *Give up to $58.65 to Aarav*. Clicking opens a **new** PayPal hold for Aarav. Everyone else's unused amount simply stays uncharged.
 
 **2. Leo, a doctored campaign.** It goes **on hold** with 5 failed checks, each with its evidence:
 - the line items add up to $3,150, but the printed total says **$9,850**;
@@ -123,6 +124,17 @@ Earmark supports two PayPal setups, chosen with `PAYEE_MODE`.
 
 `direct` mode relies on PayPal's multiparty (approved partner) capabilities with the hospital onboarded as a seller, which is how this would run in production. Try it with `PAYEE_MODE=direct`. If your sandbox app isn't enabled for third-party payees, PayPal returns a permissions error and you can switch back to `payout`.
 
+### What happens to the part a bill didn't need
+
+A pledge is a hold on the donor's own PayPal, so the part the bill doesn't need was never Earmark's money. Earmark never takes it, keeps it or decides where it goes. The **donor** decides, when pledging:
+
+- **Release the rest — don't charge me** (the default). `final_capture: true` closes the hold; the rest is never charged. If the donor never answers, this is what happens.
+- **Offer me another verified patient.** Still never charged. After settlement, the receipt offers one verified campaign at the same hospital (closest to its goal first, a fixed public rule), for at most what the bill didn't need and at most what that patient still needs. Accepting opens a **new** PayPal order and authorization: a hold is approved for one payee and one purpose, so Earmark never re-points an old one. Offers close after 7 days, are used once, and skip leftovers under $5 that fees would eat.
+
+Two guards stop surplus forming in the first place: pledges **close at the verified goal** (the pledge that crosses it may overshoot by up to 10%, a buffer for holds that lapse), and a fully pledged campaign points late donors to the next verified patient. Open offers count against a campaign's remaining need, so offers can never rebuild a surplus somewhere else. Logic: `src/lib/forward.ts`, tested in `tests/forward.test.ts`.
+
+Why not "keep it for the patient's follow-up care"? A hold is only guaranteed for 3 days, the payee is fixed when it's created, and a leftover of known size invites a padded "follow-up" invoice. A follow-up bill is a new verified bill and a new pledge.
+
 ### PayPal integration
 
 - **Orders v2**, `intent: AUTHORIZE`, with optional `purchase_units[].payee`, plus **JS SDK** donate buttons.
@@ -171,7 +183,8 @@ The public ledger (`/ledger`) is an AG Studio report with two pages (Money, Inte
 - **Partial captures** must be enabled on the PayPal account that captures.
 - **Payouts need an eligible sender.** PayPal must enable Payouts for the business account, and sending Payouts isn't available from every country (an India-based business can receive but not send them). Direct mode avoids Payouts entirely.
 - **Hospital confirmation is simulated.** Real hospitals don't expose a "did you issue this?" API. `hospital.ts` simulates each registered hospital's billing system with the documents it really issued, and every check that uses it says "simulated". In production this is the billing office's portal or a phone call, made through contact details in Earmark's registry.
-- **The visual fingerprint** catches re-saved, re-scanned and cropped copies. It doesn't catch a phone photo taken at a steep angle.
+- **The visual fingerprint** catches re-saved, re-scanned and cropped copies. It doesn't catch a phone photo taken at a steep angle. Two genuine patients on the same hospital form can look 98% alike (a registration card is mostly template), so a look-alike counts as a copy only when it's about the same patient; a copy with the name edited is still caught by its reused document number or by the hospital's confirmation.
+- **India:** PayPal stopped domestic payments in India in April 2021, so an Indian donor can't pay an Indian hospital through PayPal. Earmark's live shape there is cross-border: donors abroad, including the diaspora, paying a hospital's PayPal account directly. The demo runs in US dollars.
 - **Providers must accept PayPal.** The registry covers hospitals, clinics, pharmacies and medical-supply stores. Bank-transfer payouts to providers without PayPal are future work.
 - **No login in the demo:** roles are switched in the UI, and the provider registry is a fixed list of fictional providers.
 

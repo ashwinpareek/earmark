@@ -38,8 +38,9 @@ Earmark is verified medical fundraising built on PayPal.
    - **Direct mode:** the hospital is the PayPal payee on every hold, so the money never passes through Earmark.
 
    The family never touches it.
-7. **Every donor gets a receipt**, for example: "You pledged $100. $88.27 went to Riverside Children's Hospital. $11.73 was never charged." It includes the PayPal IDs.
-8. **A public transparency ledger, built with AG Studio,** shows every pledge, every check and every PayPal movement, including a KPI that always reads **"Paid to families: $0.00"**.
+7. **Every donor gets a receipt**, for example: "You pledged $100. $88.27 went to Riverside Children's Hospital. $11.73 was released, never charged. Held by Earmark: $0.00." It includes the PayPal IDs.
+8. **The donor decides what happens to the rest.** When pledging, each donor picks: *release it* (the default; silence moves nothing) or *offer me another verified patient*. Those who asked see, on their receipt, "Aarav's bill at the same hospital is verified and still needs $459. Give up to $58.65?" One click opens a **new** PayPal hold for Aarav. Earmark never re-points an old hold and never keeps a balance, so it isn't an escrow. Pledges also close at the verified goal and point late donors to the next verified patient, so most surplus never forms. I checked Ketto, ImpactGuru, Milaap, GoFundMe, Watsi and Give.Asia: none lets the donor choose this at pledge time.
+9. **A public transparency ledger, built with AG Studio,** shows every pledge, every check and every PayPal movement, including a KPI that always reads **"Paid to families: $0.00"**.
 
 **Fair to real families.** Rules never reject anyone. A failed check puts the campaign **on hold** with its evidence and a risk level. The family can respond, and only a person can reject. Stopping fraud must never mean turning away a sick child.
 

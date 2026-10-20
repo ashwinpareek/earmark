@@ -747,5 +747,197 @@
         }
       ]
     }
+  },
+  "7d65a7470256c5cb29207f6f39b836ea5aada9293d92bf7c4f7b0e4cfa117ed5": {
+    "file": "aarav-estimate.png",
+    "extraction": {
+      "docType": "estimate",
+      "providerName": "Riverside Children's Hospital",
+      "providerAddress": "1200 Riverside Drive, Austin, TX 78741",
+      "providerPhone": "+1 (512) 555-0142",
+      "providerRegistrationNo": "TX-HOSP-004417",
+      "patientName": "Aarav Shah",
+      "patientAge": 6,
+      "patientDob": "2020-01-19",
+      "documentNumber": "EST-2026-08907",
+      "documentDate": "2026-10-06",
+      "procedure": "Tonsillectomy and adenoidectomy",
+      "diagnosis": "Obstructive sleep apnoea (G47.33)",
+      "currency": "USD",
+      "lineItems": [
+        {
+          "description": "Surgeon fee \u2014 tonsillectomy and adenoidectomy",
+          "quantity": 1,
+          "amount": 760.0
+        },
+        {
+          "description": "Anaesthesia services",
+          "quantity": 1,
+          "amount": 420.0
+        },
+        {
+          "description": "Operating room, up to 60 minutes",
+          "quantity": 1,
+          "amount": 380.0
+        },
+        {
+          "description": "Paediatric day-surgery bed",
+          "quantity": 1,
+          "amount": 190.0
+        },
+        {
+          "description": "Medications (estimated)",
+          "quantity": 1,
+          "amount": 50.0
+        }
+      ],
+      "subtotal": 1800.0,
+      "tax": null,
+      "discount": null,
+      "insuranceCovered": 4600.0,
+      "total": 1800.0,
+      "tamperSignals": [],
+      "instructionsToReader": "",
+      "readerConfidence": 0.95,
+      "evidence": [
+        {
+          "field": "total",
+          "box": [
+            543,
+            825,
+            565,
+            940
+          ]
+        },
+        {
+          "field": "documentNumber",
+          "box": [
+            198,
+            229,
+            214,
+            373
+          ]
+        },
+        {
+          "field": "documentDate",
+          "box": [
+            219,
+            229,
+            235,
+            360
+          ]
+        },
+        {
+          "field": "patientName",
+          "box": [
+            199,
+            632,
+            214,
+            730
+          ]
+        },
+        {
+          "field": "patientAge",
+          "box": [
+            219,
+            632,
+            235,
+            769
+          ]
+        },
+        {
+          "field": "patientDob",
+          "box": [
+            219,
+            632,
+            235,
+            769
+          ]
+        },
+        {
+          "field": "providerPhone",
+          "box": [
+            78,
+            160,
+            98,
+            300
+          ]
+        },
+        {
+          "field": "providerRegistrationNo",
+          "box": [
+            78,
+            419,
+            98,
+            558
+          ]
+        }
+      ]
+    }
+  },
+  "28dcf7460b463daa323025c74316f67011cffc1ad3a7656a591e82945cf87973": {
+    "file": "aarav-registration.png",
+    "extraction": {
+      "docType": "identity",
+      "providerName": "Riverside Children's Hospital",
+      "providerAddress": "1200 Riverside Drive, Austin, TX 78741",
+      "providerPhone": "+1 (512) 555-0142",
+      "providerRegistrationNo": "TX-HOSP-004417",
+      "patientName": "Aarav Shah",
+      "patientAge": 6,
+      "patientDob": "2020-01-19",
+      "documentNumber": "RCH-5532218",
+      "documentDate": "2026-10-05",
+      "procedure": "",
+      "diagnosis": "",
+      "currency": "USD",
+      "lineItems": [],
+      "subtotal": null,
+      "tax": null,
+      "discount": null,
+      "insuranceCovered": null,
+      "total": null,
+      "tamperSignals": [],
+      "instructionsToReader": "",
+      "readerConfidence": 0.95,
+      "evidence": [
+        {
+          "field": "patientName",
+          "box": [
+            199,
+            302,
+            214,
+            399
+          ]
+        },
+        {
+          "field": "patientDob",
+          "box": [
+            226,
+            302,
+            245,
+            499
+          ]
+        },
+        {
+          "field": "patientAge",
+          "box": [
+            226,
+            302,
+            245,
+            499
+          ]
+        },
+        {
+          "field": "documentNumber",
+          "box": [
+            284,
+            302,
+            300,
+            420
+          ]
+        }
+      ]
+    }
   }
 }

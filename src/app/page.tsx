@@ -61,6 +61,7 @@ export default function Home() {
           <li><div><strong>Donors pledge, and PayPal holds the money</strong><p>Each donation is a PayPal authorization. Nothing is charged, and donors can see exactly where their money can go.</p></div></li>
           <li><div><strong>The hospital submits the final bill</strong><p>Earmark compares it with the estimate line by line. Parking passes and gift-shop charges aren&apos;t medical care, so donations don&apos;t pay for them.</p></div></li>
           <li><div><strong>Every donor pays the same fair share</strong><p>Earmark collects only what the verified bill needs, splits it evenly across pledges and pays the hospital directly. Up to 10% can cover verified pharmacy receipts, paid to the pharmacy. The rest of every pledge is released and never charged.</p></div></li>
+          <li><div><strong>The donor decides what happens to the rest</strong><p>When pledging, each donor chooses: release it, or be offered another verified patient. Earmark holds nothing, so nothing moves without the donor&apos;s own click, as a new PayPal hold.</p></div></li>
         </ol>
       </section>
 

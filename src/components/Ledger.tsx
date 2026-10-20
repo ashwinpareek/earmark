@@ -124,11 +124,12 @@ function buildData(d: LedgerData): AgDataSourcesDefinition {
       },
       {
         id: "donations",
-        description: "One row per pledge. Pledged = held amount; charged = captured share; never charged = released remainder.",
+        description: "One row per pledge. Pledged = held amount; charged = captured share; never charged = released remainder. leftover = what the donor chose, when pledging, for any unused part (Release, or Offer another patient); passedOn = the patient the donor then chose to help with a new hold, if any.",
         data: d.donations,
         fields: fields([
           ["id", "Donation ID", "textFormat", true], ["campaignId", "Campaign ID", "textFormat", true], ["donor", "Donor", "textFormat"], ["status", "Pledge status", "textFormat"],
           ["pledged", "Pledged", "currencyFormat"], ["charged", "Charged", "currencyFormat"], ["neverCharged", "Never charged", "currencyFormat"], ["date", "Pledged on", "dateFormat"],
+          ["leftover", "Donor's choice for any unused part", "textFormat"], ["passedOn", "Passed on to", "textFormat"],
         ]),
       },
       {

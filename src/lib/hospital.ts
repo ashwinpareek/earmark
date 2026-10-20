@@ -21,6 +21,7 @@ export interface HospitalRecord {
 export const HOSPITAL_RECORDS: HospitalRecord[] = [
   { providerId: "prov_riverside", documentNumber: "EST-2026-08812", patientName: "Maya Rodriguez", patientDob: "2017-03-04", total: 2400, issued: "2026-10-02" },
   { providerId: "prov_riverside", documentNumber: "INV-2026-11504", patientName: "Maya Rodriguez", patientDob: "2017-03-04", total: 2340, issued: "2026-10-08" },
+  { providerId: "prov_riverside", documentNumber: "EST-2026-08907", patientName: "Aarav Shah", patientDob: "2020-01-19", total: 1800, issued: "2026-10-06" },
 ];
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");

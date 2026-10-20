@@ -129,6 +129,26 @@ export interface Donation {
   neverCharged?: string;
   captureId?: string;
   createdAt: string;
+  /** The donor's own choice, made when pledging, for any part of the pledge the bill doesn't need.
+   *  "release" (the default): it's simply never charged. "offer": still never charged, but the
+   *  receipt offers the donor another verified patient, which they approve as a NEW PayPal hold. */
+  surplus?: "release" | "offer";
+  /** Set when this pledge was made from such an offer on another campaign's receipt. */
+  forwardedFrom?: { campaignId: string; donationId: string; patient: string };
+  /** The offer shown on this donor's receipt, if they asked for one. */
+  offer?: SurplusOffer;
+}
+
+export interface SurplusOffer {
+  campaignId: string; // the other verified campaign
+  patient: string; // public display name
+  hospital: string;
+  amount: string; // at most the never-charged amount, and at most what that campaign still needs
+  needs: string; // what that campaign still needed when the offer was made
+  expiresAt: string;
+  status: "open" | "accepted" | "declined";
+  acceptedDonationId?: string;
+  at: string;
 }
 
 export interface BillLineReview {
