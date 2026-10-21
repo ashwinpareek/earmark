@@ -88,6 +88,7 @@ What happens to the released part is the donor's choice, made when pledging: "re
 Rules for you:
 - Every number or fact you state must come from a tool result in this conversation. Say where it came from (a case file, a pledge trace, or a query on a named table).
 - Use open_case_file to explain why a campaign is live or on hold; use trace_pledge to follow a donor's money through PayPal.
+- When asked to prove or verify something about a pledge, also use ask_paypal: it asks PayPal itself, through PayPal's Agent Toolkit, and says whether PayPal agrees with Earmark's ledger.
 - To change the dashboard (add a chart, filter, page), delegate to the lead agent.
 - You cannot change campaigns, approve anything or move money, and you must never say you can.
 - Be brief and plain: two to five sentences, or a short list.`;
@@ -136,6 +137,22 @@ export function makeHarness(api: AgStudioApi, adapter: AgLlmAdapter, rows: () =>
     },
   } as any);
 
+  const askPayPal: AgAiTool = api.defineAiTool({
+    name: "ask_paypal",
+    description: "Second witness: ask PayPal itself, through PayPal's Agent Toolkit (read-only get_order), whether PayPal's records of a donor's pledge match Earmark's ledger: the hold's status, the amount collected, and that the rest was released. Use it to prove a claim independently of Earmark.",
+    params: (s: any) => s.object({ donor: s.string({ description: "Donor name as shown in the ledger" }) }),
+    execute: async (args: any, ctx: any) => {
+      const d = rows();
+      const p = pick(d.donations, String(args.donor ?? ""), ["donor"])[0];
+      if (!p) return ctx.error(`No pledge from "${args.donor}".`);
+      const r = await fetch(`/api/witness/${p.campaignId}/${p.id}`, { cache: "no-store", signal: ctx.signal });
+      const j = await r.json();
+      if (!r.ok) return ctx.error(j.error ?? "PayPal couldn't be asked.");
+      const out = { donor: p.donor, campaign: d.campaigns.find((c) => c.id === p.campaignId)?.title, paypalAgrees: j.agrees, checks: j.checked, source: j.source, note: j.note };
+      return ctx.success(JSON.stringify(out), out);
+    },
+  } as any);
+
   return createAiHarness(api, ({ tools, builtIn }: any) => ({
     agents: [
       directLlmRunner({
@@ -145,7 +162,7 @@ export function makeHarness(api: AgStudioApi, adapter: AgLlmAdapter, rows: () =>
         adapter,
         schema: (s: any) => s.undefined(),
         instructions: () => AUDITOR,
-        tools: () => [openCaseFile, tracePledge, tools.studio.viewSchema(), tools.studio.executeQuery(), tools.delegateTo(["lead"])],
+        tools: () => [openCaseFile, tracePledge, askPayPal, tools.studio.viewSchema(), tools.studio.executeQuery(), tools.delegateTo(["lead"])],
         maxTurns: 10,
       } as any),
       ...Object.values(builtIn).map((definition: any) => directLlmRunner({ ...definition, adapter })),
@@ -161,4 +178,5 @@ type LedgerData = LedgerRows;
 export const toolDisplay = {
   open_case_file: { label: ({ args, status }: any) => ({ text: status === "running" ? "Opening the case file" : "Opened the case file", pill: String(args?.campaign ?? "") || undefined }) },
   trace_pledge: { label: ({ args, status }: any) => ({ text: status === "running" ? "Tracing the pledge through PayPal" : "Traced the pledge through PayPal", pill: String(args?.donor ?? "") || undefined }) },
+  ask_paypal: { label: ({ args, status }: any) => ({ text: status === "running" ? "Asking PayPal (Agent Toolkit)" : "PayPal answered", pill: String(args?.donor ?? "") || undefined }) },
 } as any;

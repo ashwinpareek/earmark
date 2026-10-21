@@ -16,6 +16,7 @@
     "node": ">=20"
   },
   "dependencies": {
+    "@paypal/agent-toolkit": "1.11.0",
     "ag-grid-community": "^36.2.0",
     "ag-grid-react": "^36.2.0",
     "ag-studio": "^3.0.0",

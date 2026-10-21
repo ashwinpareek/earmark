@@ -61,6 +61,7 @@ type AgLlmResponseHandlerStream = ReturnType<AgLlmAdapter["executeTurn"]>["strea
 const PROMPTS = [
   { label: "Why is Leo's campaign on hold?", prompt: "Open Leo's case file and explain why the campaign is on hold." },
   { label: "Trace Grace's $500", prompt: "Trace Grace's pledge through PayPal: what was held, charged, released and paid to whom?" },
+  { label: "Does PayPal agree?", prompt: "Don't trust Earmark's ledger: ask PayPal itself whether its records of Grace's pledge match." },
   { label: "Which campaigns are on hold, and why?", prompt: "Which campaigns are on hold, and which checks failed for each? Answer from the ledger." },
   { label: "How much was never charged?", prompt: "Across all campaigns, how much did donors pledge, how much was charged, and how much was never charged? Then add a KPI for never charged." },
   { label: "Prove families got $0", prompt: "Show me, from the movements table, every payout and who received it. Did any money go to a family?" },

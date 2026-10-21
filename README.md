@@ -148,6 +148,12 @@ Why not "keep it for the patient's follow-up care"? A hold is only guaranteed fo
 - **A hardened client** (`src/lib/paypal.ts`, tested against a fake PayPal in `tests/paypal-client.test.ts`): every call times out; network errors, 429 (honouring `Retry-After`) and 5xx are retried with backoff, but only for reads and idempotent writes; business errors like `AUTHORIZATION_VOIDED` are never retried; the OAuth token is fetched once for concurrent callers, a failed fetch isn't cached, and a 401 refreshes it once. These are the failure modes the APIMatic PayPal SDK audit flags in hand-written clients.
 - Everything runs in the sandbox. A **mock mode** runs the app with no keys.
 
+### The second witness: PayPal's Agent Toolkit
+
+Earmark's ledger is Earmark's word. So every receipt has **Don't trust us. Ask PayPal.**, and the Earmark auditor agent has an `ask_paypal` tool ("Does PayPal agree?"). Both ask PayPal directly through **PayPal's Agent Toolkit** (`@paypal/agent-toolkit`, the tool layer PayPal ships for AI agents) and compare PayPal's answer with the ledger, line by line: the hold's status, the amount collected, and that the rest of the hold was closed by the final capture (plus the payee, in direct mode). Code: `src/lib/witness.ts`; tests: `tests/witness.test.ts`.
+
+The witness is read-only by construction. The toolkit can also create orders, pay them and refund them, and its `handleToolCall()` runs whatever tool name it's given, without checking the configured actions. So Earmark enforces its own allowlist of exactly one tool, `get_order`, accepts only real order IDs, and sets `sandbox: true` explicitly (the toolkit defaults to the live API). In mock mode the check replays Earmark's own record and is labelled *Mock*.
+
 ### Built to survive real-world failures
 
 - **A pledge can't be collected?** Before collecting, Earmark re-checks every hold with PayPal (`GET /v2/payments/authorizations/{id}`).

@@ -96,6 +96,23 @@ Then you submit it and try to get paid. You watch the investigation run as a cas
 
 **Guarantees that are tested, not just claimed.** A test reads the code's own import graph on every run and fails if any module that talks to an AI model can reach the PayPal client, or if anything but the workflow can capture, void, renew or pay out. The PayPal client is tested against a fake PayPal: a capture retried after a 503 reuses the same PayPal-Request-Id, stalled calls time out, rate limits honour Retry-After, and an expired token refreshes once.
 
+**A second witness: PayPal itself.** Every receipt has a "Don't trust us. Ask PayPal." button, and the ledger's AI auditor has an `ask_paypal` tool. Both read PayPal's own record of the pledge through **PayPal's Agent Toolkit** and compare it with Earmark's ledger: hold status, amount collected, rest released. The toolkit's `handleToolCall()` will run any tool it's given, including `pay_order` and `create_refund`, so Earmark wraps it in its own one-tool allowlist (`get_order`) and tests that.
+
+## Tools I used, and how
+
+| Tool | How Earmark uses it |
+|---|---|
+| **PayPal Orders v2** (`intent: AUTHORIZE`) | Every pledge is a hold; partial capture with `final_capture: true` collects each donor's fair share and releases the rest; void for unneeded holds; reauthorize after the honor period |
+| **PayPal JS SDK** | The donate button and approval popup |
+| **PayPal Payouts** | Pays the hospital and verified pharmacies in one batch per settlement |
+| **PayPal Webhooks** | Signature-verified events confirm every capture, release and payout |
+| **PayPal Agent Toolkit** (`@paypal/agent-toolkit`) | The read-only second witness: `get_order` checks each receipt against PayPal's own records, for donors and for the AI auditor |
+| **Google Gemini** (multimodal) | Reads hospital documents and photos; classifies bill lines; writes investigator notes; answers donors from verified facts; runs the ledger auditor |
+| **AG Studio** (AG Grid) | The public ledger: custom Money trail widget, custom Earmark auditor agent with its own tools, theming |
+| **Render** | Web service, Postgres and a daily cron job that renews and lapses PayPal holds |
+| **Next.js, TypeScript, Zod, sharp** | The app, strict validation, and the visual fingerprint that catches re-saved copies |
+| **Claude Code** | Pair-programming the build |
+
 ## Challenges I ran into
 
 *(Rewrite in your own words.)*
