@@ -159,11 +159,16 @@ export async function addFingerprints(entries: Omit<FingerprintEntry, "at">[]) {
   });
 }
 
-export async function recordWebhook(e: { id: string; type: string; verified: boolean }) {
+/** Log a webhook event. Returns true if a verified event with this id was already logged: PayPal
+ *  redelivers events, so the handler must process each event id once. */
+export async function recordWebhook(e: { id: string; type: string; verified: boolean }): Promise<boolean> {
+  let seen = false;
   await tx((db) => {
+    seen = e.verified && db.webhookEvents.some((x) => x.id === e.id && x.verified);
     db.webhookEvents.unshift({ ...e, at: nowIso() });
-    db.webhookEvents = db.webhookEvents.slice(0, 200);
+    db.webhookEvents = db.webhookEvents.slice(0, 500);
   });
+  return seen;
 }
 
 export async function listWebhooks() {

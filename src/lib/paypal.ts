@@ -18,7 +18,10 @@ import { uid, nowIso } from "./util";
 //   • the OAuth token is fetched once for concurrent callers, a failed fetch is never cached, and
 //     a 401 refreshes the token once.
 
-const BASE = "https://api-m.sandbox.paypal.com";
+// PAYPAL_ENVIRONMENT switches the API host. Earmark is a sandbox demo, so "sandbox" is the default
+// and the only value the hosted demo uses.
+export const paypalEnvironment = (): "sandbox" | "live" => (process.env.PAYPAL_ENVIRONMENT === "live" ? "live" : "sandbox");
+const BASE = paypalEnvironment() === "live" ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
 const TIMEOUT_MS = Number(process.env.PAYPAL_TIMEOUT_MS ?? 20_000);
 const RETRIES = 2;
 
@@ -119,6 +122,8 @@ async function pp<T>(
     if (!res.ok) {
       const issue = json?.details?.[0]?.issue ?? json?.name;
       const desc = json?.details?.[0]?.description ?? json?.message ?? `HTTP ${res.status}`;
+      // debug_id is what PayPal support needs to trace a failed call: always log it.
+      console.error(`[paypal] ${method} ${path} → ${res.status} ${issue ?? ""} debug_id=${json?.debug_id ?? "-"}`);
       throw new PayPalError(`PayPal ${method} ${path}: ${issue ?? ""} ${desc}`.trim(), res.status, issue, json?.debug_id);
     }
     return json as T;

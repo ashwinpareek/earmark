@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { handle } from "@/lib/http";
+import { handle, sameOrigin } from "@/lib/http";
 import { HttpError } from "@/lib/store";
 import { aiModelName, aiProvider } from "@/lib/ai";
 
@@ -45,6 +45,7 @@ const rid = () => Math.random().toString(36).slice(2, 12);
 
 export async function POST(req: Request) {
   return handle(async () => {
+    sameOrigin(req);
     limit(req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local");
     const raw = await req.text();
     if (raw.length > 1_500_000) throw new HttpError(413, "Turn too large");

@@ -5,7 +5,7 @@ type PayPalNS = {
   Buttons: (opts: {
     style?: Record<string, unknown>;
     createOrder: () => Promise<string>;
-    onApprove: (data: { orderID: string }) => Promise<void>;
+    onApprove: (data: { orderID: string }, actions: { restart: () => Promise<void> }) => Promise<void>;
     onError?: (err: unknown) => void;
     onCancel?: () => void;
   }) => { render: (el: HTMLElement) => Promise<void>; close?: () => void };
@@ -59,10 +59,23 @@ export default function PayPalHold(props: {
         const b = pp.Buttons({
           style: { layout: "vertical", color: "gold", shape: "rect", label: "donate", height: 44, tagline: false },
           createOrder: () => createRef.current(),
-          onApprove: async (data) => {
+          onApprove: async (data, actions) => {
             setBusy(true);
-            try { await confirmRef.current(data.orderID); } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+            setErr("");
+            try {
+              await confirmRef.current(data.orderID);
+            } catch (e) {
+              const msg = (e as Error).message;
+              // The donor's card or bank was declined: PayPal's guidance is to restart the flow so
+              // they can pick another funding source, not to retry the same one.
+              if (/INSTRUMENT_DECLINED/.test(msg)) {
+                setErr("Your payment method was declined. Choose another one in PayPal.");
+                return actions.restart();
+              }
+              setErr(msg);
+            } finally { setBusy(false); }
           },
+          onCancel: () => setErr("You closed PayPal. Nothing was held or charged."),
           onError: (e) => setErr(`PayPal error: ${String((e as Error)?.message ?? e)}`),
         });
         instance = b;

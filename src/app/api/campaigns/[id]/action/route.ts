@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { handle } from "@/lib/http";
+import { handle, sameOrigin } from "@/lib/http";
 import * as wf from "@/lib/workflow";
 import { asRole, viewFor } from "@/lib/views";
 import type { Campaign } from "@/lib/types";
@@ -27,6 +27,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const { id } = await ctx.params;
   const role = asRole(new URL(req.url).searchParams.get("role"));
   return handle(async () => {
+    sameOrigin(req);
     const a = Action.parse(await req.json());
     const view = (c: Campaign | undefined) => (c ? viewFor(c, role) : null);
     switch (a.action) {

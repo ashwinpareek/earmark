@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
-import { handle } from "@/lib/http";
+import { handle, sameOrigin } from "@/lib/http";
 import { HttpError } from "@/lib/store";
 import { createCampaign, listCampaigns } from "@/lib/workflow";
 import { ensureDemoSpace } from "@/lib/space";
@@ -31,6 +31,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   return handle(async () => {
+    sameOrigin(req);
     const form = await req.formData();
     const img = form.get("image");
     if (!(img instanceof File) || img.size === 0) throw new HttpError(400, "Attach the forged estimate");

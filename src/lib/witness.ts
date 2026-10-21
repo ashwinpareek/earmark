@@ -56,7 +56,7 @@ async function toolkit(): Promise<Toolkit> {
       clientId: process.env.PAYPAL_CLIENT_ID!,
       clientSecret: process.env.PAYPAL_CLIENT_SECRET!,
       // sandbox must be explicit: the toolkit defaults to the LIVE API.
-      configuration: { actions: { orders: { get: true } }, context: { sandbox: true } },
+      configuration: { actions: { orders: { get: true } }, context: { sandbox: process.env.PAYPAL_ENVIRONMENT !== "live" } },
     }) as unknown as Toolkit;
   }
   return g.__ppWitness;
