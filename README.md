@@ -107,6 +107,7 @@ Settlement (integer cents) ─► per-donor partial capture, final_capture=true 
 | Ask the ledger | **Earmark auditor**, a custom agent built on AG Studio's Agent Framework, fronts the AI panel. It has two tools of its own (`open_case_file`, `trace_pledge`) plus Studio's query tools, and delegates dashboard changes to Studio's built-in lead agent. Turns are proxied through `/api/studio-ai`, so the key stays server-side | Read-only: the auditor and Studio's tools only change the dashboard view; nothing can touch money |
 
 **Safety:**
+- **Enforced by a test, not a promise.** `tests/boundary.test.ts` reads the import graph of the source on every run: no module that talks to an AI model can reach the PayPal client, even indirectly; only the workflow calls capture, void, reauthorize or payout; and the ledger assistant can't reach the workflow or PayPal. (It caught one real leak: the shared error handler imported both clients just for their error types.)
 - Documents and questions are fenced as untrusted data.
 - A document that talks to the AI is treated as fraud.
 - A bill line the model skips is *not paid*.
@@ -143,7 +144,8 @@ Why not "keep it for the patient's follow-up care"? A hold is only guaranteed fo
   - **void** when a campaign is cancelled or a donor's share is zero.
 - **Payouts**: one batch per settlement, with one item per provider.
 - **Webhooks** with signature verification.
-- `PayPal-Request-Id` idempotency on every write.
+- `PayPal-Request-Id` idempotency on every write, with deterministic IDs, so a retried capture can't charge twice.
+- **A hardened client** (`src/lib/paypal.ts`, tested against a fake PayPal in `tests/paypal-client.test.ts`): every call times out; network errors, 429 (honouring `Retry-After`) and 5xx are retried with backoff, but only for reads and idempotent writes; business errors like `AUTHORIZATION_VOIDED` are never retried; the OAuth token is fetched once for concurrent callers, a failed fetch isn't cached, and a 401 refreshes it once. These are the failure modes the APIMatic PayPal SDK audit flags in hand-written clients.
 - Everything runs in the sandbox. A **mock mode** runs the app with no keys.
 
 ### Built to survive real-world failures

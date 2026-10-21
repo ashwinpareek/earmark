@@ -31,7 +31,8 @@ export function aiModelName(): string {
   }
 }
 
-export class AIError extends Error {}
+import { AIError } from "./errors";
+export { AIError };
 
 const TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS ?? 45_000);
 

@@ -2,16 +2,25 @@ import { uid, nowIso } from "./util";
 
 // PayPal REST integration (sandbox).
 //
-// Money flow per milestone:
-//   1. createAuthorizeOrder  → Orders v2, intent=AUTHORIZE (client approves in PayPal popup)
-//   2. authorizeOrder        → funds are RESERVED on the client's account, nothing is taken yet
-//   3a. captureAuthorization → full or PARTIAL capture once the AI verdict passes the policy
-//   3b. voidAuthorization    → releases any uncaptured remainder back to the client
-//   4. createPayout          → Payouts API sends the captured amount to the freelancer's PayPal
+// Money flow per donation:
+//   1. createAuthorizeOrder  → Orders v2, intent=AUTHORIZE (the donor approves in the PayPal popup)
+//   2. authorizeOrder        → the pledge is HELD on the donor's account; nothing is taken yet
+//   3a. captureAuthorization → a PARTIAL capture of the donor's fair share of the verified bill;
+//                              final_capture=true releases the rest of the hold
+//   3b. voidAuthorization    → releases a hold that isn't needed at all
+//   4. createPayout          → Payouts sends captured money to the verified providers
 //
-// Every mutating call sends a PayPal-Request-Id so retries are idempotent.
+// Hardening (the failure modes an SDK audit flags in hand-written PayPal clients):
+//   • every call has a timeout, so a stalled request can't hang a settlement;
+//   • every mutating call sends a deterministic PayPal-Request-Id, so a retry can't charge twice;
+//   • network errors, 429 and 5xx are retried with backoff (honouring Retry-After), but ONLY for
+//     GETs and idempotent writes;
+//   • the OAuth token is fetched once for concurrent callers, a failed fetch is never cached, and
+//     a 401 refreshes the token once.
 
 const BASE = "https://api-m.sandbox.paypal.com";
+const TIMEOUT_MS = Number(process.env.PAYPAL_TIMEOUT_MS ?? 20_000);
+const RETRIES = 2;
 
 export type PayPalMode = "sandbox" | "mock";
 
@@ -21,36 +30,37 @@ export function paypalMode(): PayPalMode {
   return "sandbox";
 }
 
-export class PayPalError extends Error {
-  constructor(
-    message: string,
-    public status: number,
-    public issue?: string,
-    public debugId?: string,
-  ) {
-    super(message);
-  }
-}
+import { PayPalError } from "./errors";
+export { PayPalError };
 
-type G = typeof globalThis & { __ppToken?: { token: string; exp: number } };
+type G = typeof globalThis & { __ppToken?: { token: string; exp: number }; __ppTokenFetch?: Promise<string> };
 const g = globalThis as G;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function accessToken(): Promise<string> {
+async function accessToken(fresh = false): Promise<string> {
+  if (fresh) delete g.__ppToken;
   if (g.__ppToken && g.__ppToken.exp > Date.now() + 60_000) return g.__ppToken.token;
-  const basic = Buffer.from(
-    `${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`,
-  ).toString("base64");
-  const res = await fetch(`${BASE}/v1/oauth2/token`, {
-    method: "POST",
-    headers: { Authorization: `Basic ${basic}`, "Content-Type": "application/x-www-form-urlencoded" },
-    body: "grant_type=client_credentials",
-    cache: "no-store",
+  // One fetch for all concurrent callers; cleared when it settles, so a failure isn't cached.
+  g.__ppTokenFetch ??= (async () => {
+    const basic = Buffer.from(`${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`).toString("base64");
+    const res = await fetch(`${BASE}/v1/oauth2/token`, {
+      method: "POST",
+      headers: { Authorization: `Basic ${basic}`, "Content-Type": "application/x-www-form-urlencoded" },
+      body: "grant_type=client_credentials",
+      cache: "no-store",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!res.ok) throw new PayPalError(`PayPal auth failed (${res.status}). Check PAYPAL_CLIENT_ID/SECRET.`, res.status);
+    const j = (await res.json()) as { access_token: string; expires_in: number };
+    g.__ppToken = { token: j.access_token, exp: Date.now() + j.expires_in * 1000 };
+    return j.access_token;
+  })().finally(() => {
+    delete g.__ppTokenFetch;
   });
-  if (!res.ok) throw new PayPalError(`PayPal auth failed (${res.status}). Check PAYPAL_CLIENT_ID/SECRET.`, res.status);
-  const j = (await res.json()) as { access_token: string; expires_in: number };
-  g.__ppToken = { token: j.access_token, exp: Date.now() + j.expires_in * 1000 };
-  return j.access_token;
+  return g.__ppTokenFetch;
 }
+
+const retryable = (status: number) => status === 429 || status >= 500;
 
 async function pp<T>(
   method: string,
@@ -58,28 +68,61 @@ async function pp<T>(
   body?: unknown,
   opts: { requestId?: string; extraHeaders?: Record<string, string> } = {},
 ): Promise<T> {
-  const token = await accessToken();
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-    Prefer: "return=representation",
-    ...opts.extraHeaders,
-  };
-  if (opts.requestId) headers["PayPal-Request-Id"] = opts.requestId;
-  const res = await fetch(`${BASE}${path}`, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-    cache: "no-store",
-  });
-  const text = await res.text();
-  const json = text ? JSON.parse(text) : {};
-  if (!res.ok) {
-    const issue = json?.details?.[0]?.issue ?? json?.name;
-    const desc = json?.details?.[0]?.description ?? json?.message ?? `HTTP ${res.status}`;
-    throw new PayPalError(`PayPal ${method} ${path}: ${issue ?? ""} ${desc}`.trim(), res.status, issue, json?.debug_id);
+  // Safe to repeat: reads, and writes PayPal de-duplicates by PayPal-Request-Id.
+  const idempotent = method === "GET" || !!opts.requestId;
+  let refreshed = false;
+  for (let attempt = 0; ; attempt++) {
+    const token = await accessToken();
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Prefer: "return=representation",
+      ...opts.extraHeaders,
+    };
+    if (opts.requestId) headers["PayPal-Request-Id"] = opts.requestId;
+    let res: Response;
+    try {
+      res = await fetch(`${BASE}${path}`, {
+        method,
+        headers,
+        body: body === undefined ? undefined : JSON.stringify(body),
+        cache: "no-store",
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+    } catch (e) {
+      // Timeout or network failure: the request may or may not have reached PayPal, so only
+      // repeat it when PayPal will recognise the repeat.
+      if (idempotent && attempt < RETRIES) {
+        await sleep(400 * 2 ** attempt);
+        continue;
+      }
+      throw new PayPalError(`PayPal ${method} ${path}: ${(e as Error).name === "TimeoutError" ? `no response in ${TIMEOUT_MS / 1000}s` : (e as Error).message}`, 0);
+    }
+    if (res.status === 401 && !refreshed) {
+      refreshed = true;
+      await accessToken(true);
+      attempt--;
+      continue;
+    }
+    if (retryable(res.status) && idempotent && attempt < RETRIES) {
+      const after = Number(res.headers.get("retry-after"));
+      await sleep(Number.isFinite(after) && after > 0 ? Math.min(after, 10) * 1000 : 400 * 2 ** attempt);
+      continue;
+    }
+    const text = await res.text();
+    let json: Record<string, unknown> & { details?: { issue?: string; description?: string }[]; name?: string; message?: string; debug_id?: string } = {};
+    try {
+      json = text ? JSON.parse(text) : {};
+    } catch {
+      json = { message: text.slice(0, 200) };
+    }
+    if (!res.ok) {
+      const issue = json?.details?.[0]?.issue ?? json?.name;
+      const desc = json?.details?.[0]?.description ?? json?.message ?? `HTTP ${res.status}`;
+      throw new PayPalError(`PayPal ${method} ${path}: ${issue ?? ""} ${desc}`.trim(), res.status, issue, json?.debug_id);
+    }
+    return json as T;
   }
-  return json as T;
 }
 
 // ─── Orders / authorizations ────────────────────────────────────────
@@ -234,7 +277,7 @@ export async function reauthorize(authorizationId: string, amount: string, curre
     "POST",
     `/v2/payments/authorizations/${authorizationId}/reauthorize`,
     { amount: { currency_code: currency, value: amount } },
-    { requestId: `reauth-${authorizationId}-${Date.now()}` },
+    { requestId: `reauth-${authorizationId}` }, // each renewal yields a new authorization id, so this is unique per renewal
   );
   return { authorizationId: res.id, status: res.status, expiresAt: res.expiration_time };
 }

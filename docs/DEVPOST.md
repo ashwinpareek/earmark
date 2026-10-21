@@ -94,6 +94,8 @@ Then you submit it and try to get paid. You watch the investigation run as a cas
   - A **custom "Earmark auditor" agent**, built on Studio's Agent Framework, fronts the AI panel. It has its own tools: one opens a campaign's case file, one traces a pledge through PayPal. It delegates chart-building to Studio's built-in agents and can never touch money.
 - **Next.js 15 + React 19 + TypeScript + Zod**, deployable to **Render** with a blueprint.
 
+**Guarantees that are tested, not just claimed.** A test reads the code's own import graph on every run and fails if any module that talks to an AI model can reach the PayPal client, or if anything but the workflow can capture, void, renew or pay out. The PayPal client is tested against a fake PayPal: a capture retried after a 503 reuses the same PayPal-Request-Id, stalled calls time out, rate limits honour Retry-After, and an expired token refreshes once.
+
 ## Challenges I ran into
 
 *(Rewrite in your own words.)*
