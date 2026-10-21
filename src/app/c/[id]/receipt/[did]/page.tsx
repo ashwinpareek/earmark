@@ -5,6 +5,7 @@ import { MIN_OFFER_CENTS, needsCents, offerOpen } from "@/lib/forward";
 import { provider } from "@/lib/providers";
 import Receipt from "@/components/Receipt";
 import OfferCard from "@/components/OfferCard";
+import WitnessCheck from "@/components/WitnessCheck";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
           {d.status !== "held" && <li><span>Held by Earmark</span><span className="tiny">{money(0, c.currency)}</span></li>}
         </ul>
       </div>
+      {d.orderId && <WitnessCheck campaignId={c.id} donationId={d.id} />}
       {d.forwardedFrom && <p className="small" style={{ marginTop: 14 }}>You passed this on from what <Link href={`/c/${d.forwardedFrom.campaignId}`}>{d.forwardedFrom.patient}&apos;s bill</Link> didn&apos;t need.</p>}
       {offer && <div style={{ marginTop: 18 }}><OfferCard offer={offer} covered={offer.status === "declined" && d.offer?.status === "open"} campaignId={c.id} donationId={d.id} fromPatient={c.patient.displayName} currency={c.currency} /></div>}
       <p className="tiny muted" style={{ marginTop: 14 }}>No money from this pledge was paid to the family or the campaign organizer.</p>
