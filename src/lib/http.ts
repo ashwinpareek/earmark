@@ -16,3 +16,15 @@ export async function handle<T>(fn: () => Promise<T>) {
     return NextResponse.json({ error: (e as Error).message || "Server error" }, { status: 500 });
   }
 }
+
+/** CSRF guard for state-changing routes: browsers send Origin on cross-site POSTs, and a pledge,
+ *  an upload or a review decision may only come from Earmark's own pages. Server-to-server
+ *  callers (PayPal webhooks, the cron job) don't use these routes. */
+export function sameOrigin(req: Request) {
+  const origin = req.headers.get("origin");
+  if (!origin) return;
+  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
+  let o = "";
+  try { o = new URL(origin).host; } catch { /* "null" or junk */ }
+  if (!host || o !== host) throw new HttpError(403, "Cross-site request refused.");
+}

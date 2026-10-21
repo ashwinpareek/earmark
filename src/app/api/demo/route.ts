@@ -2,7 +2,7 @@ import { viewFor } from "@/lib/views";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
-import { handle } from "@/lib/http";
+import { handle, sameOrigin } from "@/lib/http";
 import { confirmDonation, createCampaign, createDonationOrder, listCampaigns } from "@/lib/workflow";
 import { paypalMode } from "@/lib/paypal";
 import { ensureDemoSpace } from "@/lib/space";
@@ -85,6 +85,7 @@ async function copycat(space: string) {
 
 export async function POST(req: Request) {
   return handle(async () => {
+    sameOrigin(req);
     const { scenario } = z.object({ scenario: z.enum(["honest", "fraud", "copycat"]) }).parse(await req.json());
     // Every visitor gets a private demo space, so judges never collide with each other.
     const space = await ensureDemoSpace();

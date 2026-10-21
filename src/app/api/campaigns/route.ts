@@ -1,5 +1,5 @@
 import { viewFor } from "@/lib/views";
-import { handle } from "@/lib/http";
+import { handle, sameOrigin } from "@/lib/http";
 import { createCampaign, listCampaigns } from "@/lib/workflow";
 import { HttpError } from "@/lib/store";
 import { provider } from "@/lib/providers";
@@ -27,6 +27,7 @@ const KINDS: DocKind[] = ["estimate", "identity", "medical_note"];
 
 export async function POST(req: Request) {
   return handle(async () => {
+    sameOrigin(req);
     const form = await req.formData();
     const s = (k: string) => String(form.get(k) ?? "").trim();
     const name = s("organizerName"), email = s("organizerEmail");
