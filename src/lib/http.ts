@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { HttpError } from "./store";
-import { PayPalError } from "./paypal";
-import { AIError } from "./ai";
+import { AIError, PayPalError } from "./errors";
 import { ZodError } from "zod";
 
 export async function handle<T>(fn: () => Promise<T>) {
