@@ -113,6 +113,7 @@ Settlement (integer cents) ─► per-donor partial capture, final_capture=true 
 - A bill line the model skips is *not paid*.
 - Money only moves to a provider's **registered** PayPal account, never to an address printed on a document.
 - Donors never see raw medical documents. Public views are redacted.
+- Earmark stores no PayPal payer data (name, email or address from PayPal); a donor's receipt uses only what they typed when pledging.
 
 ### Where the money goes
 
