@@ -156,12 +156,16 @@ GoFundMe, Milaap and Ketto charge donors up front and review documents with staf
 
 ## Testing instructions (judges)
 
-See the README's **Run it locally** and **Try it in 60 seconds** sections. Shortest path:
-1. Open the app and select **Open Maya's campaign**.
-2. Pledge with the sandbox buyer below.
-3. Switch to **Family** and select **Use the sample pharmacy receipt**.
-4. Switch to **Hospital** and select **Use the sample final bill**.
-5. Open **Ledger**.
-6. Back on the home page, open **Leo's campaign** and **the copycat**, then the **Radar**.
+No setup needed: open the hosted app. Every judge gets a private demo space (**Reset my demo** starts over). Each step takes under a minute:
 
-Sandbox donor login: *(add your sandbox Personal account email and password here, or ask judges to use their own sandbox account)*
+1. **Forge a bill.** Home → **Try to forge a bill**. Change the total, or pick a preset, and submit. Watch each check fail with its evidence, then **See the evidence on your forgery** (turn on **X-ray**).
+2. **A real family.** Home → **Open Maya's campaign**. Pledge with the sandbox buyer below; choose **"Offer me another verified patient"** under *If the final bill is lower*. The pledge is a PayPal hold, not a charge. (Mock mode: **Add 8 simulated donors**.)
+3. **The bill comes in.** Switch to **Hospital** → **Use the sample final bill**. The parking pass is excluded, and every donor pays the same share. **Where the money went**: hospital paid, the rest never charged, family $0, Earmark held $0.
+4. **Pass it on.** Open any receipt from the **Pledges** list (Grace's, in mock mode). **Give up to $… to Aarav** opens a new PayPal hold for another verified patient at the same hospital.
+5. **Don't trust us.** On the same receipt, **Check with PayPal** asks PayPal itself, through PayPal's Agent Toolkit, and compares it with Earmark's ledger.
+6. **The scams.** Home → **Leo's campaign** (on hold, 5 failed checks) and **the copycat** (caught by a visual fingerprint), then the **Radar**.
+7. **The ledger.** **Ledger** → **Ask the ledger** → *"Does PayPal agree?"* or *"Why is Leo's campaign on hold?"*
+
+Sandbox donor login: *(add your sandbox Personal account email and password here)*
+
+The README covers the architecture, tests and how to run Earmark locally.
