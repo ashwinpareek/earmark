@@ -95,11 +95,12 @@ export async function llmJson<T>(
     const parts: unknown[] = atts.map((a) => ({ inline_data: { mime_type: a.mime, data: a.data } }));
     parts.push({ text: user });
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
       {
         method: "POST",
         signal: AbortSignal.timeout(TIMEOUT_MS),
-        headers: { "content-type": "application/json" },
+        // the key goes in a header, never the URL, so it can't leak into request logs
+        headers: { "content-type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY ?? "" },
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: system }] },
           contents: [{ role: "user", parts }],
