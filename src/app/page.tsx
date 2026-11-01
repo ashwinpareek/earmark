@@ -3,51 +3,74 @@ import HeroReceipt from "@/components/HeroReceipt";
 import DemoButton from "@/components/DemoButtons";
 import ResetDemo from "@/components/ResetDemo";
 import LabScore from "@/components/LabScore";
+import PledgeStory from "@/components/PledgeStory";
+import Logo, { MARK } from "@/components/Logo";
 
 export default function Home() {
   return (
+    <>
     <div className="wrap">
       <section className="hero">
         <div>
           <p className="eyebrow">Medical fundraising on PayPal</p>
-          <h1>The best a scammer can do is pay a stranger&apos;s hospital bill.</h1>
+          <h1>
+            The best a scammer can do is pay a stranger&apos;s
+            {" "}<span className="glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z" /></svg></span>{" "}
+            hospital bill.
+          </h1>
           <p className="lede">
-            On Earmark every donation is a PayPal hold, not a charge. It can only be collected for a bill the hospital itself confirms, and only paid
-            to the hospital. Forge the paperwork and you get caught. Beat the checks and you&apos;ve paid for someone&apos;s surgery.
+            Every donation is a PayPal hold, not a charge. It can only be collected for a bill the hospital itself confirms, and only paid to the
+            hospital. Forge the paperwork and you get caught.
           </p>
           <div className="row">
-            <Link href="/lab" className="btn danger-solid">Try to forge a bill</Link>
-            <DemoButton scenario="honest" label="See a real campaign" className="btn ghost" />
+            <Link href="/lab" className="btn danger-solid lg">Try to forge a bill</Link>
+            <DemoButton scenario="honest" label="See a real campaign" className="btn ghost lg" />
           </div>
           <LabScore />
-          <div className="built" aria-label="What Earmark is built on">
-            <div>
-              <b>PayPal moves the money</b>
-              <ul>
-                <li>Orders v2 holds, not charges</li>
-                <li>Partial capture of each fair share</li>
-                <li>Payouts to the verified hospital</li>
-                <li>Agent Toolkit checks every receipt</li>
-              </ul>
-            </div>
-            <div className="ai">
-              <b>AI reads the paperwork</b>
-              <ul>
-                <li>Gemini reads bills and photos</li>
-                <li>Points at every forged value</li>
-                <li>Writes the reviewer&apos;s case notes</li>
-                <li>An auditor agent answers from the ledger</li>
-              </ul>
-            </div>
-          </div>
-          <p className="fine">
-            Medical crowdfunding runs on trust: fake campaigns borrow real children&apos;s photos, inflate the target and keep the money. Earmark removes
-            the trust step. An AI reads the hospital&apos;s documents, plain rules check every claim, and PayPal holds make sure the money can only ever
-            reach the verified bill.
-          </p>
         </div>
         <HeroReceipt />
       </section>
+    </div>
+
+    <section className="statement grain" aria-label="The promise">
+      <div className="wrap">
+        <p className="statement-big">On Earmark, a donation can only ever pay the hospital.</p>
+        <p className="statement-sub">Not the family. Not a forger. Not us.</p>
+      </div>
+    </section>
+
+    <PledgeStory />
+
+    <div className="wrap">
+      <section className="duo" aria-labelledby="built">
+        <h2 id="built" className="sr">What Earmark is built on</h2>
+        <div className="duo-card pp">
+          <span className="duo-tag">PayPal moves the money</span>
+          <p className="duo-lead">Holds, fair shares and payouts. Every cent is a PayPal object you can look up.</p>
+          <ul>
+            <li><b>Orders v2 authorizations</b> hold each pledge without charging it</li>
+            <li><b>Partial capture</b> collects only each donor&apos;s fair share; the rest is released</li>
+            <li><b>Payouts</b> pay the registry-verified hospital, never the family</li>
+            <li><b>Agent Toolkit</b> lets any donor ask PayPal to confirm their receipt</li>
+          </ul>
+        </div>
+        <div className="duo-card ai">
+          <span className="duo-tag">AI reads the paperwork</span>
+          <p className="duo-lead">The AI reads and explains. Plain rules decide. Only code moves money.</p>
+          <ul>
+            <li><b>Gemini</b> reads bills, estimates and phone photos</li>
+            <li><b>Points at every forged value</b> with a box on the page</li>
+            <li><b>Writes the reviewer&apos;s case notes</b> with the evidence</li>
+            <li><b>An auditor agent</b> answers questions from the public ledger</li>
+          </ul>
+        </div>
+      </section>
+
+      <p className="fine wide-fine">
+        Medical crowdfunding runs on trust: fake campaigns borrow real children&apos;s photos, inflate the target and keep the money. Earmark removes
+        the trust step. An AI reads the hospital&apos;s documents, plain rules check every claim, and PayPal holds make sure the money can only ever
+        reach the verified bill.
+      </p>
 
       <section className="band" aria-labelledby="layers">
         <div>
@@ -67,21 +90,6 @@ export default function Home() {
             <span className="layer-n">3</span>
             <div><strong>The money only pays the verified hospital</strong><p>Pledges are PayPal authorizations. They&apos;re captured only for a bill the hospital submits, split fairly across donors, and Earmark&apos;s settlement pays only the hospital&apos;s registry-verified PayPal account. The family receives $0; so does a forger who got this far.</p></div>
           </li>
-        </ol>
-      </section>
-
-      <section className="band" aria-labelledby="how">
-        <div>
-          <h2 id="how">How a campaign works</h2>
-          <p className="intro">The family never touches the money, and no donor pays for anything that isn&apos;t on a verified bill.</p>
-        </div>
-        <ol className="flow">
-          <li><div><strong>The family uploads the hospital&apos;s estimate</strong><p>Plus the patient&apos;s registration card and a doctor&apos;s note. An AI reads every document, including photos taken on a phone.</p></div></li>
-          <li><div><strong>Earmark checks the documents</strong><p>Is the hospital real and are its details right? Do the totals add up? Is it the same patient everywhere? Has this document been used in another campaign? Fake campaigns stop here.</p></div></li>
-          <li><div><strong>Donors pledge, and PayPal holds the money</strong><p>Each donation is a PayPal authorization. Nothing is charged, and donors can see exactly where their money can go.</p></div></li>
-          <li><div><strong>The hospital submits the final bill</strong><p>Earmark compares it with the estimate line by line. Parking passes and gift-shop charges aren&apos;t medical care, so donations don&apos;t pay for them.</p></div></li>
-          <li><div><strong>Every donor pays the same fair share</strong><p>Earmark collects only what the verified bill needs, splits it evenly across pledges and pays the hospital directly. Up to 10% can cover verified pharmacy receipts, paid to the pharmacy. The rest of every pledge is released and never charged.</p></div></li>
-          <li><div><strong>The donor decides what happens to the rest</strong><p>When pledging, each donor chooses: release it, or be offered another verified patient. Earmark holds nothing, so nothing moves without the donor&apos;s own click, as a new PayPal hold.</p></div></li>
         </ol>
       </section>
 
@@ -147,6 +155,33 @@ export default function Home() {
           </div>
         </div>
       </section>
+      <section className="band mark-band" aria-labelledby="mark">
+        <div>
+          <h2 id="mark">Why it&apos;s called Earmark</h2>
+          <p className="intro">To earmark money is to set it aside for one purpose. The mark is built from three parts that say how.</p>
+        </div>
+        <div className="mark-parts">
+          <div className="mark-hero"><Logo size={132} title="The Earmark mark" /></div>
+          <dl>
+            {[
+              { part: "page", name: "The page", say: "A hospital bill: the only thing a donation can pay." },
+              { part: "fold", name: "The folded corner", say: "Earmarked: the money is turned down for this bill and no other." },
+              { part: "check", name: "The check", say: "Cut out of the page: verified before a cent moves." },
+            ].map((p) => (
+              <div key={p.part}>
+                <dt>
+                  <svg viewBox="0 0 48 48" aria-hidden="true" className={`part-${p.part}`}>
+                    <path className="pg" d={MARK.page} /><path className="fd" d={MARK.fold} /><path className="ck" d={MARK.check} />
+                  </svg>
+                  {p.name}
+                </dt>
+                <dd>{p.say}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </section>
     </div>
+    </>
   );
 }
