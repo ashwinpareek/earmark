@@ -45,7 +45,7 @@ export default function Home() {
           </li>
           <li>
             <span className="layer-n">3</span>
-            <div><strong>The money physically can&apos;t go anywhere else</strong><p>Pledges are PayPal authorizations. They&apos;re captured only for a bill the hospital submits, split fairly across donors, and paid to the hospital&apos;s registered PayPal account. The family receives $0; so does a forger who got this far.</p></div>
+            <div><strong>The money only pays the verified hospital</strong><p>Pledges are PayPal authorizations. They&apos;re captured only for a bill the hospital submits, split fairly across donors, and Earmark&apos;s settlement pays only the hospital&apos;s registry-verified PayPal account. The family receives $0; so does a forger who got this far.</p></div>
           </li>
         </ol>
       </section>

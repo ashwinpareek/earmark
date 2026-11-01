@@ -9,7 +9,7 @@ reading the code. The toolkit's live probes need a sandbox access token and were
 Credentials & Security
   [✓] No client secret in source or in any browser bundle; secrets come from env vars only
   [✓] .env is git-ignored
-  [✓] PAYPAL_ENVIRONMENT selects sandbox or live (default and hosted demo: sandbox)   ← added
+  [✓] Sandbox-only: the app refuses to start if PAYPAL_ENVIRONMENT is anything but sandbox ← added
 
 Authentication & Token Management
   [✓] Token cached and reused until expires_in; HTTP Basic auth; grant_type=client_credentials

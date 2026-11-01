@@ -56,7 +56,7 @@ async function toolkit(): Promise<Toolkit> {
       clientId: process.env.PAYPAL_CLIENT_ID!,
       clientSecret: process.env.PAYPAL_CLIENT_SECRET!,
       // sandbox must be explicit: the toolkit defaults to the LIVE API.
-      configuration: { actions: { orders: { get: true } }, context: { sandbox: process.env.PAYPAL_ENVIRONMENT !== "live" } },
+      configuration: { actions: { orders: { get: true } }, context: { sandbox: true } },
     }) as unknown as Toolkit;
   }
   return g.__ppWitness;
@@ -118,6 +118,14 @@ function mockOrder(c: Campaign, d: Donation): PayPalOrder {
     status: d.status === "pending" ? "CREATED" : "COMPLETED",
     purchase_units: [{ payments: { authorizations: [{ id: d.authorizationId ?? "", status: st }], captures: cents(d.captured) > 0 ? [{ id: d.captureId ?? "", status: "COMPLETED", final_capture: true, amount: { value: d.captured!, currency_code: c.currency } }] : [] } }],
   };
+}
+
+/** The hold and the collection are checked with get_order (Agent Toolkit). The payout to the
+ *  hospital is a separate PayPal object, so it is checked separately, by reading the payout batch
+ *  from the Payouts API, and labelled as such. */
+export function withPayoutCheck(w: Witness, row: { earmark: string; paypal: string; ok: boolean }): Witness {
+  const checked = [...w.checked, { what: "Paid to the hospital (Payouts API)", ...row }];
+  return { ...w, checked, agrees: checked.every((k) => k.ok) };
 }
 
 export async function witnessDonation(c: Campaign, d: Donation, mode: "sandbox" | "mock"): Promise<Witness> {
