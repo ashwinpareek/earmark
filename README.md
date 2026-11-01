@@ -170,7 +170,7 @@ The witness is read-only by construction. The toolkit can also create orders, pa
 
   For local runs with no public URL, **Check with PayPal now** reads each movement back from the API instead. Unverified webhooks are logged but can't confirm anything.
 - **The server restarts?** With `DATABASE_URL` set (render.yaml creates Render Postgres), every campaign, ledger entry and uploaded document is stored in Postgres, so restarts, redeploys and free-plan sleeps lose nothing.
-- **A hold gets old?** A daily Render cron job (`/api/cron/holds`) renews each PayPal hold once its 3-day honor period has passed (PayPal only allows that from day 4). It also marks holds that expired, so the page never claims money that can't be collected.
+- **A hold gets old?** A daily GitHub Actions job (`.github/workflows/holds.yml` calls `/api/cron/holds`) renews each PayPal hold once its 3-day honor period has passed (PayPal only allows that from day 4). It also marks holds that expired, so the page never claims money that can't be collected.
 - **Settled twice?** Settlement first claims the campaign atomically, so a double click or a second tab gets "already being settled". Every capture also carries a `PayPal-Request-Id`, so even a retried request can't charge twice.
 - **The AI is down or out of quota?** AI calls time out after 45s. The bundled sample documents fall back to their answer key, bill lines fall back to keyword rules, and Q&A answers from verified facts. Only brand-new uploads need the AI.
 

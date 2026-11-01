@@ -1,0 +1,16 @@
+# Daily PayPal hold renewal, run from GitHub Actions (Render has no free cron plan).
+# It asks the web service to renew holds past their 3-day honor period and mark expired ones.
+# Set the repository variable APP_URL (your Render URL) and the repository secret CRON_SECRET
+# (the same value as the web service's CRON_SECRET on Render). Without them it does nothing.
+name: renew-holds
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+jobs:
+  renew:
+    runs-on: ubuntu-latest
+    if: ${{ vars.APP_URL != '' }}
+    steps:
+      - run: |
+          curl -fsS --max-time 120 -X POST -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" "${{ vars.APP_URL }}/api/cron/holds"
