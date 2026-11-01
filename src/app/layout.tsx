@@ -3,6 +3,8 @@ import Link from "next/link";
 import "@fontsource-variable/archivo/wdth.css";
 import "./globals.css";
 import Logo from "@/components/Logo";
+import Splash from "@/components/Splash";
+import MobileDock from "@/components/MobileDock";
 import { paypalMode } from "@/lib/paypal";
 import { aiProvider, aiModelName } from "@/lib/ai";
 
@@ -14,14 +16,19 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
+const SPLASH_GATE = `try{var d=document.documentElement;if(sessionStorage.getItem("em-splash")||matchMedia("(prefers-reduced-motion: reduce)").matches||navigator.webdriver&&!location.search.includes("splash")){d.dataset.splash="skip"}else{sessionStorage.setItem("em-splash","1")}}catch(e){document.documentElement.dataset.splash="skip"}`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const pp = paypalMode();
   const ai = aiProvider();
   return (
-    <html lang="en">
+    <html lang="en" data-splash="on" suppressHydrationWarning>
       <head>
+        {/* Decide before first paint whether the opening sequence plays: once per visit, never with reduced motion. */}
+        <script dangerouslySetInnerHTML={{ __html: SPLASH_GATE }} />
       </head>
       <body>
+        <Splash />
         {(pp === "mock" || ai === "offline") && (
           <div className="banner">
             <div className="wrap">
@@ -50,8 +57,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </header>
         <main>{children}</main>
         <footer className="foot">
-          <div className="wrap">Earmark runs on the PayPal sandbox. Every hospital, patient and document in the demo is fictional. MIT licensed.</div>
+          <div className="wrap foot-grid">
+            <div className="foot-brand"><Logo size={34} /><div><b>Earmark</b><span>Donations that can only pay the hospital.</span></div></div>
+            <nav aria-label="Footer">
+              <Link href="/lab">Forgery Lab</Link>
+              <Link href="/campaigns">Campaigns</Link>
+              <Link href="/ledger">Public ledger</Link>
+              <Link href="/radar">Reuse radar</Link>
+            </nav>
+            <p>Built on PayPal (Orders v2, Payouts, Agent Toolkit) and Gemini. Runs on the PayPal sandbox; every hospital, patient and document in the demo is fictional. MIT licensed.</p>
+          </div>
         </footer>
+        <MobileDock />
       </body>
     </html>
   );
