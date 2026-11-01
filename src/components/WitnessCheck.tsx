@@ -11,7 +11,7 @@ export default function WitnessCheck({ campaignId, donationId }: { campaignId: s
   return (
     <div className="card witness" style={{ marginTop: 18 }}>
       <h3>Don&apos;t trust us. Ask PayPal.</h3>
-      <p className="small muted">Checks this receipt against PayPal&apos;s own records, read through PayPal&apos;s Agent Toolkit (read-only).</p>
+      <p className="small muted">Checks this receipt against PayPal&apos;s own records: the hold and what was collected through PayPal&apos;s Agent Toolkit (read-only <code>get_order</code>), and the payment to the hospital through the Payouts API.</p>
       {!w && (
         <button className="btn ghost sm" style={{ marginTop: 10 }} disabled={busy} onClick={async () => {
           setBusy(true); setErr("");

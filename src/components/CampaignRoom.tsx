@@ -374,7 +374,7 @@ function DonatePanel({ c, status, act, reload }: { c: View; status: Status | nul
             <label className="check-line"><input type="radio" name="surplus" checked={surplus === "release"} onChange={() => setSurplus("release")} /> <span><b>Release the rest — don&apos;t charge me</b> <span className="tiny muted">(recommended)</span></span></label>
             <label className="check-line"><input type="radio" name="surplus" checked={surplus === "offer"} onChange={() => setSurplus("offer")} /> <span><b>Offer me another verified patient</b><span className="tiny muted"> I&apos;ll approve it myself, as a new pledge. Nothing moves without my click.</span></span></label>
           </fieldset>
-          <p className="tiny muted">This is a hold on your PayPal, not a payment. You&apos;re charged only your share of the hospital&apos;s verified final bill, never more than you pledge. Anything unused is released. Earmark never holds your money. Holds last up to 29 days, which suits urgent treatment.</p>
+          <p className="tiny muted">This is a hold on your PayPal, not a payment. You&apos;re charged only your share of the hospital&apos;s verified final bill, never more than you pledge. Anything unused is released. Pledges close once the verified goal is reached. Holds last up to 29 days, which suits urgent treatment.</p>
           {valid && status ? (
             <PayPalHold
               mode={status.paypal}
@@ -681,7 +681,7 @@ function Settlement({ c, hosp, act }: { c: CampaignView; hosp: string; act: (b: 
             ))}
             <div><i style={{ background: "var(--never-fill)" }} /><span>Released, never charged to donors</span><b>{money(s.neverCharged, c.currency)}</b></div>
             <div><i style={{ background: "var(--muted)" }} /><span>Paid to the family</span><b>{money(0, c.currency)}</b></div>
-            <div><i style={{ background: "var(--muted)" }} /><span>Held by Earmark</span><b>{money(0, c.currency)}</b></div>
+            <div><i style={{ background: "var(--muted)" }} /><span>Kept by Earmark</span><b>{money(0, c.currency)}</b></div>
           </div>
           {(() => {
             const offers = c.donations.filter((d) => d.offer);

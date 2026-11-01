@@ -18,10 +18,13 @@ import { uid, nowIso } from "./util";
 //   • the OAuth token is fetched once for concurrent callers, a failed fetch is never cached, and
 //     a 401 refreshes the token once.
 
-// PAYPAL_ENVIRONMENT switches the API host. Earmark is a sandbox demo, so "sandbox" is the default
-// and the only value the hosted demo uses.
-export const paypalEnvironment = (): "sandbox" | "live" => (process.env.PAYPAL_ENVIRONMENT === "live" ? "live" : "sandbox");
-const BASE = paypalEnvironment() === "live" ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
+// Sandbox only. The hackathon runs on PayPal's sandbox, and this build refuses to start against the
+// live API: a stray PAYPAL_ENVIRONMENT=live (or live credentials) can never move real money.
+if (process.env.PAYPAL_ENVIRONMENT && process.env.PAYPAL_ENVIRONMENT !== "sandbox") {
+  throw new Error(`PAYPAL_ENVIRONMENT=${process.env.PAYPAL_ENVIRONMENT}: this build is sandbox-only.`);
+}
+export const paypalEnvironment = (): "sandbox" => "sandbox";
+const BASE = "https://api-m.sandbox.paypal.com";
 const TIMEOUT_MS = Number(process.env.PAYPAL_TIMEOUT_MS ?? 20_000);
 const RETRIES = 2;
 

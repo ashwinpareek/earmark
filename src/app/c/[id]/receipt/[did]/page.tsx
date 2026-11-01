@@ -46,7 +46,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
           {capture && <li><span>Your share captured</span><span className="tiny">{capture.paypalId}{ok(capture)}</span></li>}
           {d.status !== "held" && <li><span>Rest of your pledge released</span><span className="tiny">{money(d.neverCharged ?? 0, c.currency)}, never charged{capture ? ` (${d.authorizationId}, closed)` : ""}</span></li>}
           {payout && <li><span>Paid directly to {hosp}</span><span className="tiny">{payout.paypalId}{ok(payout)}</span></li>}
-          {d.status !== "held" && <li><span>Held by Earmark</span><span className="tiny">{money(0, c.currency)}</span></li>}
+          {d.status !== "held" && <li><span>Kept by Earmark</span><span className="tiny">{money(0, c.currency)}</span></li>}
         </ul>
       </div>
       {d.orderId && <WitnessCheck campaignId={c.id} donationId={d.id} />}

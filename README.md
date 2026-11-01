@@ -59,7 +59,7 @@ Open the app and work through the three demo campaigns on the home page, then th
 - Every donor pays the same **90.8%** of their pledge:
   - **$2,295** goes to the hospital and **$64.50** to the pharmacy, both paid directly;
   - **$240.50** is never charged;
-  - **$0** goes to the family, and **$0** is held by Earmark.
+  - **$0** goes to the family, and **$0** is kept by Earmark.
 - Each donor gets a receipt with PayPal IDs.
 - **Pass it on.** Grace, Mei and the coworkers chose *"Offer me another verified patient"* when they pledged. Their receipts now offer **Aarav**, another verified patient at the same hospital: *Give up to $58.65 to Aarav*. Clicking opens a **new** PayPal hold for Aarav. Everyone else's unused amount simply stays uncharged.
 
@@ -147,7 +147,7 @@ Why not "keep it for the patient's follow-up care"? A hold is only guaranteed fo
 - **Webhooks** with signature verification.
 - `PayPal-Request-Id` idempotency on every write, with deterministic IDs, so a retried capture can't charge twice.
 - **A hardened client** (`src/lib/paypal.ts`, tested against a fake PayPal in `tests/paypal-client.test.ts`): every call times out; network errors, 429 (honouring `Retry-After`) and 5xx are retried with backoff, but only for reads and idempotent writes; business errors like `AUTHORIZATION_VOIDED` are never retried; the OAuth token is fetched once for concurrent callers, a failed fetch isn't cached, and a 401 refreshes it once. These are the failure modes the APIMatic PayPal SDK audit flags in hand-written clients.
-- **Checked with PayPal Doctor.** The integration was run through the checklist in PayPal's AI Toolkit; the report and the fixes it led to (INSTRUMENT_DECLINED restart, webhook de-duplication, CSRF guard, `debug_id` logging, environment switch) are in [`docs/PAYPAL_DOCTOR.md`](docs/PAYPAL_DOCTOR.md).
+- **Checked with PayPal Doctor.** The integration was run through the checklist in PayPal's AI Toolkit; the report and the fixes it led to (INSTRUMENT_DECLINED restart, webhook de-duplication, CSRF guard, `debug_id` logging, a sandbox-only guard) are in [`docs/PAYPAL_DOCTOR.md`](docs/PAYPAL_DOCTOR.md).
 - Everything runs in the sandbox. A **mock mode** runs the app with no keys.
 
 ### The second witness: PayPal's Agent Toolkit
