@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import "@fontsource-variable/archivo/wdth.css";
 import "./globals.css";
 import Logo from "@/components/Logo";
 import { paypalMode } from "@/lib/paypal";
@@ -19,9 +20,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" />
       </head>
       <body>
         {(pp === "mock" || ai === "offline") && (
@@ -36,9 +34,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="wrap">
             <Link href="/" className="brand" aria-label="Earmark home"><Logo /> Earmark</Link>
             <nav className="nav" aria-label="Main">
-              <span className="runtime" title="Runtime configuration">
-                <span className={`dot ${pp === "mock" ? "warn" : ""}`} /> PayPal {pp}
-                <span className={`dot ${ai === "offline" ? "warn" : ""}`} /> {aiModelName()}
+              <span className="runtime" title="What this deployment is running on">
+                <span className="chip pp"><span className={`dot ${pp === "mock" ? "warn" : ""}`} /> PayPal {pp}</span>
+                <span className="chip"><span className={`dot ${ai === "offline" ? "warn" : ""}`} /> {ai === "offline" ? "AI offline" : aiModelName()}</span>
               </span>
               <Link href="/lab" className="nav-lab">Forgery Lab</Link>
               <Link href="/campaigns" className="hide-sm">Campaigns</Link>

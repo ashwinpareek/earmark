@@ -1,51 +1,54 @@
 :root {
-  --paper: #f5f6f9;
-  --surface: #ffffff;
-  --ink: #1a1d3a;
-  --ink-2: #363b62;
-  --muted: #5f667f;
-  --rule: #d9dce6;
-  --rule-2: #eceef4;
-  --held: #4338ca;
-  --held-bg: #ebeafc;
-  --paid: #0f766e;
-  --paid-bg: #e2f3f0;
-  --never: #b7791f;
-  --never-fill: #e7a92a;
-  --never-bg: #fdf4de;
-  --warn: #b45309;
-  --warn-bg: #fdeedd;
-  --fail: #b42318;
-  --fail-bg: #fdeceb;
-  --focus: #4338ca;
-  --font: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --r-s: 6px;
-  --r-m: 12px;
-  --shadow: 0 1px 0 rgba(26, 29, 58, 0.04), 0 12px 28px -18px rgba(26, 29, 58, 0.35);
+  /* "The billing office": ledger-sage paper, forest ink, PayPal-hold blue, paid green,
+     manila for money that was released, and stamp red for forgeries. */
+  --paper: #e9efea;
+  --surface: #fbfcfa;
+  --ink: #12261f;
+  --ink-2: #2f4740;
+  --muted: #5a6f68;
+  --rule: #c9d6cf;
+  --rule-2: #dde6e0;
+  --held: #2245c9;
+  --held-bg: #e1e7fa;
+  --paid: #0a7552;
+  --paid-bg: #d9eee3;
+  --never: #8f5c08;
+  --never-fill: #dfa935;
+  --never-bg: #f7ecd2;
+  --warn: #a35607;
+  --warn-bg: #f8e7d3;
+  --fail: #b8322a;
+  --fail-bg: #f8e3e0;
+  --focus: #2245c9;
+  --font: "Archivo Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --wide: 118%;
+  --r-s: 4px;
+  --r-m: 6px;
+  --shadow: 0 1px 0 rgba(18, 38, 31, 0.05), 0 18px 34px -20px rgba(18, 38, 31, 0.45);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --paper: #0f1124;
-    --surface: #171a33;
-    --ink: #eceefa;
-    --ink-2: #c9cdea;
-    --muted: #979dbd;
-    --rule: #2c3157;
-    --rule-2: #20244a;
-    --held: #9d97ff;
-    --held-bg: #25235a;
-    --paid: #4fd1bd;
-    --paid-bg: #10332f;
-    --never: #f2c35c;
-    --never-fill: #e7a92a;
-    --never-bg: #3a2d10;
-    --warn: #f59e4b;
-    --warn-bg: #3b250e;
-    --fail: #ff8a80;
-    --fail-bg: #3e1716;
-    --focus: #9d97ff;
-    --shadow: 0 1px 0 rgba(0, 0, 0, 0.3), 0 14px 32px -18px rgba(0, 0, 0, 0.7);
+    --paper: #0d1a16;
+    --surface: #132520;
+    --ink: #e6efe9;
+    --ink-2: #c3d3cb;
+    --muted: #8fa69c;
+    --rule: #284139;
+    --rule-2: #1c322b;
+    --held: #93a8ff;
+    --held-bg: #1d2a57;
+    --paid: #55d0a2;
+    --paid-bg: #10372a;
+    --never: #f0c56b;
+    --never-fill: #dfa935;
+    --never-bg: #3a2c10;
+    --warn: #f2a65a;
+    --warn-bg: #3a250f;
+    --fail: #ff8b7f;
+    --fail-bg: #3d1715;
+    --focus: #93a8ff;
+    --shadow: 0 1px 0 rgba(0, 0, 0, 0.3), 0 18px 34px -18px rgba(0, 0, 0, 0.75);
   }
 }
 
@@ -437,3 +440,59 @@ table.lines tfoot td { font-weight: 800; border-bottom: none; }
 .card.offer { border-color: var(--paid); }
 .next-patient { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--rule); display: grid; gap: 10px; justify-items: start; }
 .surplus input[type="radio"] { width: auto; flex: none; }
+
+
+/* ── Identity pass: type, paper, slips ─────────────────────────────── */
+h1, h2, .brand, .stamp, .money .goal b, .receipt .big, .scoreboard dd { font-stretch: var(--wide); }
+h1 { font-weight: 800; letter-spacing: -0.03em; }
+h2, h3 { letter-spacing: -0.015em; }
+.brand { font-size: 21px; letter-spacing: -0.02em; }
+.card { box-shadow: none; }
+.eyebrow { text-transform: none; letter-spacing: 0; font-size: 15px; font-weight: 700; color: var(--fail); }
+.scoreboard dt { text-transform: none; letter-spacing: 0; font-size: 13px; }
+.lab-tools h2 { text-transform: none; letter-spacing: 0; font-size: 16px; color: var(--ink); }
+.mt-ok { text-transform: none; letter-spacing: 0; }
+.banner { background: transparent; color: var(--muted); font-size: 13px; padding: 6px 0; }
+.banner code { font-size: 12.5px; }
+
+/* Runtime chips: which PayPal and which AI this deployment is really using */
+.runtime { gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border: 1px solid var(--rule); border-radius: 999px; background: var(--surface); font-size: 12.5px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+.chip .dot { background: var(--paid); }
+.chip.pp .dot { background: var(--held); }
+.chip .dot.warn { background: var(--warn); }
+
+/* Hero */
+.hero h1 { font-size: clamp(34px, 4.2vw, 54px); line-height: 1; max-width: 17ch; letter-spacing: -0.03em; }
+.hero .lede { font-size: 19px; }
+.built { margin-top: 28px; display: grid; grid-template-columns: 1fr 1fr; border-top: 2px solid var(--ink); }
+.built > div { padding: 12px 18px 4px 0; }
+.built > div + div { padding-left: 18px; border-left: 1px solid var(--rule); }
+.built b { display: block; font-size: 15px; font-stretch: var(--wide); }
+.built ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 3px; font-size: 14px; color: var(--ink-2); }
+.built li::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin: 0 8px 2px 0; background: var(--held); }
+.built .ai li::before { background: var(--paid); }
+@media (max-width: 560px) { .built { grid-template-columns: 1fr; } .built > div + div { padding-left: 0; border-left: 0; border-top: 1px solid var(--rule); } }
+
+/* The receipt slip: the one element that gets depth, perforated top and bottom edges */
+.receipt { border-radius: 2px; border: 0; padding-top: 30px; padding-bottom: 26px;
+  -webkit-mask: radial-gradient(circle 5px at 7px 0, transparent 98%, #000) -7px 0 / 14px 51% repeat-x, radial-gradient(circle 5px at 7px 100%, transparent 98%, #000) -7px 100% / 14px 51% repeat-x;
+          mask: radial-gradient(circle 5px at 7px 0, transparent 98%, #000) -7px 0 / 14px 51% repeat-x, radial-gradient(circle 5px at 7px 100%, transparent 98%, #000) -7px 100% / 14px 51% repeat-x;
+  filter: drop-shadow(0 16px 22px rgba(18, 38, 31, 0.18)); box-shadow: none; }
+.receipt .big { font-size: 38px; }
+.hero-slip { position: relative; }
+.hero-slip .stamp { position: absolute; right: 54px; top: 34px; background: color-mix(in srgb, var(--surface) 70%, transparent); }
+
+/* Numbered steps read like boxes on a hospital form */
+.flow li::before { border-radius: 3px; background: transparent; color: var(--ink); border: 1.5px solid var(--ink); font-stretch: var(--wide); }
+.layer-n { border-radius: 3px; font-stretch: var(--wide); }
+
+/* Section headings on the landing page */
+.band h2 { font-size: 30px; line-height: 1.05; }
+.band { border-top-color: var(--rule); }
+@media (max-width: 560px) {
+  .brand { font-size: 19px; gap: 8px; }
+  .nav { gap: 12px; }
+  .nav .btn { padding: 7px 10px; font-size: 13px; }
+  .chip { display: none; }
+}

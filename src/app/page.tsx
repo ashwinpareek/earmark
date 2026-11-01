@@ -20,6 +20,26 @@ export default function Home() {
             <DemoButton scenario="honest" label="See a real campaign" className="btn ghost" />
           </div>
           <LabScore />
+          <div className="built" aria-label="What Earmark is built on">
+            <div>
+              <b>PayPal moves the money</b>
+              <ul>
+                <li>Orders v2 holds, not charges</li>
+                <li>Partial capture of each fair share</li>
+                <li>Payouts to the verified hospital</li>
+                <li>Agent Toolkit checks every receipt</li>
+              </ul>
+            </div>
+            <div className="ai">
+              <b>AI reads the paperwork</b>
+              <ul>
+                <li>Gemini reads bills and photos</li>
+                <li>Points at every forged value</li>
+                <li>Writes the reviewer&apos;s case notes</li>
+                <li>An auditor agent answers from the ledger</li>
+              </ul>
+            </div>
+          </div>
           <p className="fine">
             Medical crowdfunding runs on trust: fake campaigns borrow real children&apos;s photos, inflate the target and keep the money. Earmark removes
             the trust step. An AI reads the hospital&apos;s documents, plain rules check every claim, and PayPal holds make sure the money can only ever
