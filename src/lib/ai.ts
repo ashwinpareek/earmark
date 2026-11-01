@@ -25,7 +25,7 @@ export function aiModelName(): string {
     case "openai":
       return process.env.OPENAI_MODEL || "gpt-4o-mini";
     case "gemini":
-      return process.env.GEMINI_MODEL || "gemini-2.5-flash";
+      return process.env.GEMINI_MODEL || "gemini-3.5-flash";
     default:
       return "offline";
   }
@@ -94,8 +94,13 @@ export async function llmJson<T>(
   } else if (provider === "gemini") {
     const parts: unknown[] = atts.map((a) => ({ inline_data: { mime_type: a.mime, data: a.data } }));
     parts.push({ text: user });
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+    // Gemini models get busy ("high demand", 503/429). Try the configured model, then the fallbacks,
+    // so a judge's upload doesn't fail because one model is overloaded.
+    const fallbacks = (process.env.GEMINI_FALLBACK_MODELS ?? "gemini-3.1-flash-lite,gemini-3.8-flash").split(",").map((m) => m.trim()).filter((m) => m && m !== model);
+    let res: Response | undefined;
+    for (const m of [model, ...fallbacks]) {
+      res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`,
       {
         method: "POST",
         signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -107,9 +112,12 @@ export async function llmJson<T>(
           generationConfig: { responseMimeType: "application/json", maxOutputTokens: maxTokens, temperature: opts.temperature ?? 0.1 },
         }),
       },
-    );
-    if (!res.ok) throw new AIError(`Gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
-    const j = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+      );
+      if (res.ok || ![429, 500, 503].includes(res.status)) break;
+      console.warn(`[ai] Gemini ${m} busy (${res.status}); trying the next model`);
+    }
+    if (!res!.ok) throw new AIError(`Gemini ${res!.status}: ${(await res!.text()).slice(0, 300)}`);
+    const j = (await res!.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
     text = j.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
   } else {
     throw new AIError("offline");
