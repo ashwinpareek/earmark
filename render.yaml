@@ -1,8 +1,8 @@
-# Render Blueprint: New → Blueprint → pick this repo. Three services:
+# Render Blueprint: New → Blueprint → pick this repo. Everything here is on Render's free plan:
 #   earmark       the web app (Next.js): pages, PayPal webhooks, the Forgery Lab
 #   earmark-db    Postgres: every campaign, ledger entry and uploaded document survives restarts
-#   earmark-holds a daily cron job that renews PayPal holds after their 3-day honor period
-#                 and marks holds that expired, so pledges never silently stop being collectable
+# The daily hold renewal (renew PayPal holds after their 3-day honor period, mark expired ones)
+# runs from .github/workflows/holds.yml, because Render has no free plan for cron jobs.
 #
 # Free web services sleep after 15 idle minutes (about a minute to wake). For judging, use the
 # starter plan (the hackathon's Render credits cover it) or the GitHub keepalive workflow.
@@ -35,40 +35,15 @@ services:
         sync: false
       - key: PAYPAL_CLIENT_SECRET
         sync: false
-      - key: PAYPAL_WEBHOOK_ID
-        sync: false
       - key: PROVIDER_PAYPAL_EMAIL
-        sync: false
-      - key: PHARMACY_PAYPAL_EMAIL
         sync: false
       - key: PAYEE_MODE
         value: payout
+      - key: PAYPAL_ENVIRONMENT
+        value: sandbox
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash
       - key: GEMINI_API_KEY
         sync: false
-      - key: ANTHROPIC_API_KEY
-        sync: false
-      - key: OPENAI_API_KEY
-        sync: false
-      - key: AG_STUDIO_LICENSE
-        sync: false
-
-  - type: cron
-    name: earmark-holds
-    runtime: node
-    plan: starter
-    schedule: "17 6 * * *"
-    buildCommand: "true"
-    startCommand: node scripts/cron-holds.mjs
-    envVars:
-      - key: NODE_VERSION
-        value: "22"
-      - key: APP_HOST
-        fromService:
-          type: web
-          name: earmark
-          property: host
-      - key: CRON_SECRET
-        fromService:
-          type: web
-          name: earmark
-          envVarKey: CRON_SECRET
+# Optional, add in the dashboard: PAYPAL_WEBHOOK_ID (signed webhooks), PHARMACY_PAYPAL_EMAIL,
+# AG_STUDIO_LICENSE (removes the ledger watermark), ANTHROPIC_API_KEY or OPENAI_API_KEY.
