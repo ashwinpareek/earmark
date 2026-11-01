@@ -75,7 +75,7 @@ async function getOrder(orderId: string): Promise<PayPalOrder> {
 const cents = (v?: string | number) => Math.round(Number(v ?? 0) * 100);
 
 /** Compare Earmark's record of one pledge with what PayPal itself reports. */
-export function compare(c: Campaign, d: Donation, order: PayPalOrder, source: Witness["source"]): Witness {
+export function compare(c: Campaign, d: Donation, order: PayPalOrder, source: Witness["source"], payeeMode: "payout" | "direct" = "payout"): Witness {
   const pu = order.purchase_units?.[0];
   const auth = pu?.payments?.authorizations?.find((a) => a.id === d.authorizationId) ?? pu?.payments?.authorizations?.[0];
   const caps = (pu?.payments?.captures ?? []).filter((x) => x.status === "COMPLETED" || x.status === "PENDING");
@@ -94,7 +94,10 @@ export function compare(c: Campaign, d: Donation, order: PayPalOrder, source: Wi
   if (cents(d.captured) > cents(d.pledged)) checked.push({ what: "Never above the pledge", earmark: fmtMoney(d.pledged, cur), paypal: fmtMoney(captured / 100, cur), ok: false });
   const hosp = provider(c.providerId);
   const payee = pu?.payee?.email_address;
-  if (payee && hosp) checked.push({ what: "Who the money is for", earmark: hosp.name, paypal: payee.toLowerCase() === hosp.paypalEmail.toLowerCase() ? `${hosp.name}'s registered account` : "a different account", ok: payee.toLowerCase() === hosp.paypalEmail.toLowerCase() });
+  // In payout mode (the default) PayPal collects into Earmark's platform account and the hospital is
+  // paid by a separate Payouts batch, checked in its own row. Only a direct-pay order names the
+  // hospital as payee, so only then is the payee compared.
+  if (payee && hosp && payeeMode === "direct") checked.push({ what: "Who the money is for", earmark: hosp.name, paypal: payee.toLowerCase() === hosp.paypalEmail.toLowerCase() ? `${hosp.name}'s registered account` : "a different account", ok: payee.toLowerCase() === hosp.paypalEmail.toLowerCase() });
   const agrees = checked.every((k) => k.ok);
   return {
     source,
@@ -131,5 +134,5 @@ export function withPayoutCheck(w: Witness, row: { earmark: string; paypal: stri
 export async function witnessDonation(c: Campaign, d: Donation, mode: "sandbox" | "mock"): Promise<Witness> {
   if (!d.orderId) throw new Error("This pledge has no PayPal order yet.");
   if (mode === "mock") return compare(c, d, mockOrder(c, d), "mock");
-  return compare(c, d, await getOrder(d.orderId), "paypal-agent-toolkit");
+  return compare(c, d, await getOrder(d.orderId), "paypal-agent-toolkit", process.env.PAYEE_MODE === "direct" ? "direct" : "payout");
 }

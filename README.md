@@ -148,6 +148,7 @@ Why not "keep it for the patient's follow-up care"? A hold is only guaranteed fo
 - `PayPal-Request-Id` idempotency on every write, with deterministic IDs, so a retried capture can't charge twice.
 - **A hardened client** (`src/lib/paypal.ts`, tested against a fake PayPal in `tests/paypal-client.test.ts`): every call times out; network errors, 429 (honouring `Retry-After`) and 5xx are retried with backoff, but only for reads and idempotent writes; business errors like `AUTHORIZATION_VOIDED` are never retried; the OAuth token is fetched once for concurrent callers, a failed fetch isn't cached, and a 401 refreshes it once. These are the failure modes the APIMatic PayPal SDK audit flags in hand-written clients.
 - **Checked with PayPal Doctor.** The integration was run through the checklist in PayPal's AI Toolkit; the report and the fixes it led to (INSTRUMENT_DECLINED restart, webhook de-duplication, CSRF guard, `debug_id` logging, a sandbox-only guard) are in [`docs/PAYPAL_DOCTOR.md`](docs/PAYPAL_DOCTOR.md).
+- **Run end to end on the real PayPal sandbox.** Holds, a partial capture with the rest released, a Payouts batch to the hospital, and PayPal agreeing through its Agent Toolkit: object IDs and the receipt in [`docs/SANDBOX_RUN.md`](docs/SANDBOX_RUN.md).
 - Everything runs in the sandbox. A **mock mode** runs the app with no keys.
 
 ### The second witness: PayPal's Agent Toolkit
@@ -214,10 +215,11 @@ npm run dev               # http://localhost:3000
 
 1. **PayPal sandbox app.**
    1. At [developer.paypal.com](https://developer.paypal.com/dashboard/), switch to **Sandbox**.
-   2. Open **Apps & Credentials**, choose **Create App** (Merchant), and copy the **Client ID** and **Secret** into `.env`.
-   3. Make sure **Payouts** is ticked.
-2. **Payees.** Create a sandbox **Business** account under **Testing Tools → Sandbox Accounts** and put its email in `PROVIDER_PAYPAL_EMAIL`. Pharmacy payouts go there too unless you set `PHARMACY_PAYPAL_EMAIL`.
-3. **Donor login.** Log in with the default sandbox **Personal** account in the PayPal popup.
+   2. Under **Testing Tools → Sandbox Accounts**, create a **United States** Business account for the platform. PayPal refuses Payouts from some countries' accounts (India sandbox accounts get `PAYOUT_NOT_AVAILABLE`).
+   3. Open **Apps & Credentials**, choose **Create App**, pick that US business account, and copy the **Client ID** and **Secret** into `.env`.
+   4. Make sure **Payouts** is ticked.
+2. **Payees.** Create a second US sandbox **Business** account (the test hospital) under **Testing Tools → Sandbox Accounts** and put its email in `PROVIDER_PAYPAL_EMAIL`. Pharmacy payouts go there too unless you set `PHARMACY_PAYPAL_EMAIL`.
+3. **Donor login.** Create a US sandbox **Personal** account and log in with it in the PayPal popup. If the generated password is refused, set your own under **View/edit account**.
 4. **AI.** Set `GEMINI_API_KEY` ([free](https://aistudio.google.com/apikey)), or `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`.
 5. *(Optional)* `AG_STUDIO_LICENSE` removes the ledger watermark. `PAYEE_MODE=direct` tries the direct-payee setup.
 

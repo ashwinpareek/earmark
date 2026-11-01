@@ -1,3 +1,4 @@
+import { fmtMoney } from "@/lib/util";
 import { handle } from "@/lib/http";
 import { getCampaign, HttpError } from "@/lib/store";
 import { getPayoutBatch, paypalMode } from "@/lib/paypal";
@@ -38,9 +39,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string; did
       const item = b.items.find((i) => i.ref === `${c.id}-bill`);
       const st = item?.status ?? b.status;
       const ok = ["SUCCESS", "COMPLETED", "PENDING", "PROCESSING"].includes(st.toUpperCase());
-      return withPayoutCheck(w, { earmark: `$${mine.amount} to ${hosp}`, paypal: `batch ${s.payoutBatchId}: ${st}`, ok });
+      return withPayoutCheck(w, { earmark: `${fmtMoney(mine.amount, c.currency)} to ${hosp}`, paypal: `batch ${s.payoutBatchId}: ${st}`, ok });
     } catch {
-      return withPayoutCheck(w, { earmark: `$${mine.amount} to ${hosp}`, paypal: "couldn't be read right now", ok: false });
+      return withPayoutCheck(w, { earmark: `${fmtMoney(mine.amount, c.currency)} to ${hosp}`, paypal: "couldn't be read right now", ok: false });
     }
   });
 }
