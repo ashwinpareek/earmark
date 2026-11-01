@@ -101,10 +101,10 @@ async function gemini(body: B, instructions: string): Promise<Out[]> {
   const mode = tc === "none" ? "NONE" : tc === "required" || (tc && typeof tc === "object") ? "ANY" : "AUTO";
   const useTools = body.tools.length > 0 && mode !== "NONE";
   const json = body.responseFormat.type === "json" && !useTools;
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${aiModelName()}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${aiModelName()}:generateContent`, {
     method: "POST",
     signal: AbortSignal.timeout(55_000),
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY ?? "" },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: system }] },
       contents,
