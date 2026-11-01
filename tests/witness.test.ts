@@ -44,3 +44,13 @@ test("a hold left open after collecting is a mismatch (the rest wasn't released)
   assert.equal(w.agrees, false);
   assert.ok(w.checked.some((k) => k.what === "Rest of the pledge" && !k.ok));
 });
+
+// Found in the first live sandbox run: in payout mode PayPal collects into Earmark's platform account,
+// so the order's payee is never the hospital. The hospital is checked through the Payouts row instead.
+test("payout mode: the platform account as payee is expected, not a mismatch", () => {
+  const o = { ...order("CAPTURED", "441.35"), purchase_units: [{ ...order("CAPTURED", "441.35").purchase_units[0], payee: { email_address: "platform@business.example.com" } }] };
+  assert.equal(compare(c, d, o, "paypal-agent-toolkit", "payout").agrees, true);
+  const direct = compare(c, d, o, "paypal-agent-toolkit", "direct");
+  assert.equal(direct.agrees, false);
+  assert.ok(direct.checked.some((k) => k.what === "Who the money is for" && !k.ok));
+});
