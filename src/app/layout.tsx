@@ -46,10 +46,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <span className="chip pp"><span className={`dot ${pp === "mock" ? "warn" : ""}`} /> PayPal {pp}</span>
                 <span className="chip"><span className={`dot ${ai === "offline" ? "warn" : ""}`} /> {ai === "offline" ? "AI offline" : aiModelName()}</span>
               </span>
+              <Link href="/agent" className="nav-agent">Giving Agent</Link>
               <Link href="/lab" className="nav-lab">Forgery Lab</Link>
               <Link href="/campaigns" className="hide-sm">Campaigns</Link>
-              <Link href="/radar" className="hide-sm">Radar</Link>
-              <Link href="/hospital" className="hide-sm">Providers</Link>
               <Link href="/review" className="hide-sm">Review</Link>
               <Link href="/ledger" className="hide-sm">Ledger</Link>
               <Link href="/start" className="btn sm">Start a campaign</Link>

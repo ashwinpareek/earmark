@@ -146,6 +146,9 @@ export interface CreateOrderInput {
   /** Direct mode: the provider is the payee, so captured money lands in ITS PayPal account and
    *  never passes through the platform. Requires PayPal multiparty (approved partner) permissions. */
   payeeEmail?: string;
+  /** Also save the donor's PayPal (PayPal Vault, "save with purchase") so their Giving Agent can
+   *  place later holds without another login. Merchant-initiated, within the donor's mandate. */
+  vault?: boolean;
 }
 
 export async function createAuthorizeOrder(input: CreateOrderInput): Promise<{ id: string; approveUrl?: string }> {
@@ -168,6 +171,7 @@ export async function createAuthorizeOrder(input: CreateOrderInput): Promise<{ i
       ],
       payment_source: {
         paypal: {
+          ...(input.vault ? { attributes: { vault: { store_in_vault: "ON_SUCCESS", usage_type: "MERCHANT", customer_type: "CONSUMER", permit_multiple_payment_tokens: true } } } : {}),
           experience_context: {
             brand_name: "Earmark",
             shipping_preference: "NO_SHIPPING",
@@ -190,6 +194,9 @@ export interface AuthorizationResult {
   amount: string;
   currency: string;
   payerEmail?: string;
+  /** PayPal Vault payment token, when the order asked to save the donor's PayPal. */
+  vaultId?: string;
+  vaultCustomerId?: string;
 }
 
 export async function authorizeOrder(orderId: string): Promise<AuthorizationResult> {
@@ -206,8 +213,10 @@ export async function authorizeOrder(orderId: string): Promise<AuthorizationResu
   type Auth = { id: string; status: string; expiration_time?: string; amount: { value: string; currency_code: string } };
   const res = await pp<{
     payer?: { email_address?: string };
+    payment_source?: { paypal?: { email_address?: string; attributes?: { vault?: { id?: string; status?: string; customer?: { id?: string } } } } };
     purchase_units: { payments: { authorizations: Auth[] } }[];
   }>("POST", `/v2/checkout/orders/${orderId}/authorize`, {}, { requestId: `authorize-${orderId}` });
+  const vault = res.payment_source?.paypal?.attributes?.vault;
   const auth = res.purchase_units?.[0]?.payments?.authorizations?.[0];
   if (!auth) throw new PayPalError("Authorization missing from PayPal response", 500);
   return {
@@ -216,8 +225,35 @@ export async function authorizeOrder(orderId: string): Promise<AuthorizationResu
     expiresAt: auth.expiration_time,
     amount: auth.amount.value,
     currency: auth.amount.currency_code,
-    payerEmail: res.payer?.email_address,
+    payerEmail: res.payer?.email_address ?? res.payment_source?.paypal?.email_address,
+    ...(vault?.id && vault.status === "VAULTED" ? { vaultId: vault.id, vaultCustomerId: vault.customer?.id } : {}),
   };
+}
+
+/** A hold placed by the donor's Giving Agent with their saved PayPal (no redirect, no login).
+ *  Still only an authorization: it can be collected solely for a hospital-confirmed bill. */
+export async function createVaultedHold(input: { vaultId: string; amount: string; currency: string; description: string; customId: string; invoiceId: string; requestId: string }): Promise<AuthorizationResult & { orderId: string }> {
+  if (paypalMode() === "mock") {
+    return { orderId: uid("MOCKORDER").toUpperCase(), authorizationId: uid("MOCKAUTH").toUpperCase(), status: "CREATED", expiresAt: new Date(Date.now() + 29 * 864e5).toISOString(), amount: input.amount, currency: input.currency };
+  }
+  type Auth = { id: string; status: string; expiration_time?: string; amount: { value: string; currency_code: string } };
+  const res = await pp<{ id: string; status: string; purchase_units: { payments?: { authorizations?: Auth[] } }[] }>(
+    "POST",
+    "/v2/checkout/orders",
+    {
+      intent: "AUTHORIZE",
+      purchase_units: [{ custom_id: input.customId.slice(0, 127), invoice_id: input.invoiceId.slice(0, 127), description: input.description.slice(0, 127), soft_descriptor: "EARMARK DONATION", amount: { currency_code: input.currency, value: input.amount } }],
+      payment_source: { paypal: { vault_id: input.vaultId, stored_credential: { payment_initiator: "MERCHANT", usage: "SUBSEQUENT" } } },
+    },
+    { requestId: input.requestId },
+  );
+  let auth = res.purchase_units?.[0]?.payments?.authorizations?.[0];
+  if (!auth) {
+    // Some accounts return an approved order instead of an authorized one: authorize it now.
+    const a = await authorizeOrder(res.id);
+    return { ...a, orderId: res.id };
+  }
+  return { orderId: res.id, authorizationId: auth.id, status: auth.status, expiresAt: auth.expiration_time, amount: auth.amount.value, currency: auth.amount.currency_code };
 }
 
 /** Re-check a hold before collecting: still CREATED, and not past its expiry? */
@@ -341,3 +377,10 @@ export async function verifyWebhook(headers: Headers, rawBody: string): Promise<
 }
 
 export const paypalNow = nowIso;
+
+/** Delete a saved PayPal token (PayPal Vault v3), so nothing can be placed with it again. */
+export async function deleteVaultToken(vaultId: string): Promise<boolean> {
+  if (paypalMode() === "mock") return true;
+  await pp("DELETE", `/v3/vault/payment-tokens/${encodeURIComponent(vaultId)}`, undefined, { requestId: `vault-delete-${vaultId}` });
+  return true;
+}

@@ -939,5 +939,571 @@
         }
       ]
     }
+  },
+  "4348e06ec04161826cbccdb7c55e36ec9d9141cf6c06237148232305dc2dc706": {
+    "file": "leila-estimate.png",
+    "extraction": {
+      "docType": "estimate",
+      "providerName": "Lakeview General Hospital",
+      "providerAddress": "88 Lakeview Parkway, Madison, WI 53703",
+      "providerPhone": "+1 (608) 555-0178",
+      "providerRegistrationNo": "WI-HOSP-002291",
+      "patientName": "Leila Haddad",
+      "patientAge": 7,
+      "patientDob": "2019-02-02",
+      "documentNumber": "LGH-EST-44120",
+      "documentDate": "2026-10-09",
+      "procedure": "Burn wound care and split-thickness skin graft",
+      "diagnosis": "Second-degree burns, left forearm (ICD-10 T22.212A)",
+      "currency": "USD",
+      "lineItems": [
+        {
+          "description": "Surgeon fee, skin graft",
+          "quantity": 1,
+          "amount": 1250.0
+        },
+        {
+          "description": "Anaesthesia services",
+          "quantity": 1,
+          "amount": 540.0
+        },
+        {
+          "description": "Burn unit bed, 3 nights",
+          "quantity": 3,
+          "amount": 930.0
+        },
+        {
+          "description": "Dressings and wound care supplies",
+          "quantity": 1,
+          "amount": 280.0
+        },
+        {
+          "description": "Medications (estimated)",
+          "quantity": 1,
+          "amount": 200.0
+        }
+      ],
+      "subtotal": 3200.0,
+      "tax": null,
+      "discount": null,
+      "insuranceCovered": 11010.0,
+      "total": 3200.0,
+      "tamperSignals": [],
+      "instructionsToReader": "",
+      "readerConfidence": 0.95,
+      "evidence": [
+        {
+          "field": "total",
+          "box": [
+            543,
+            821,
+            565,
+            941
+          ]
+        },
+        {
+          "field": "documentNumber",
+          "box": [
+            199,
+            229,
+            214,
+            364
+          ]
+        },
+        {
+          "field": "documentDate",
+          "box": [
+            219,
+            229,
+            235,
+            360
+          ]
+        },
+        {
+          "field": "patientName",
+          "box": [
+            199,
+            632,
+            214,
+            743
+          ]
+        },
+        {
+          "field": "patientAge",
+          "box": [
+            219,
+            632,
+            235,
+            757
+          ]
+        },
+        {
+          "field": "patientDob",
+          "box": [
+            219,
+            632,
+            235,
+            757
+          ]
+        },
+        {
+          "field": "providerPhone",
+          "box": [
+            78,
+            160,
+            98,
+            303
+          ]
+        },
+        {
+          "field": "providerRegistrationNo",
+          "box": [
+            78,
+            421,
+            98,
+            560
+          ]
+        }
+      ]
+    }
+  },
+  "2d28ae9bf59f7e6cdea2e4a8207cef2431ad4f13bf62ef8296ad1096913c250c": {
+    "file": "leila-registration.png",
+    "extraction": {
+      "docType": "identity",
+      "providerName": "Lakeview General Hospital",
+      "providerAddress": "88 Lakeview Parkway, Madison, WI 53703",
+      "providerPhone": "+1 (608) 555-0178",
+      "providerRegistrationNo": "WI-HOSP-002291",
+      "patientName": "Leila Haddad",
+      "patientAge": 7,
+      "patientDob": "2019-02-02",
+      "documentNumber": "LGH-771204",
+      "documentDate": "2026-10-09",
+      "procedure": "",
+      "diagnosis": "",
+      "currency": "USD",
+      "lineItems": [],
+      "subtotal": null,
+      "tax": null,
+      "discount": null,
+      "insuranceCovered": null,
+      "total": null,
+      "tamperSignals": [],
+      "instructionsToReader": "",
+      "readerConfidence": 0.95,
+      "evidence": [
+        {
+          "field": "patientName",
+          "box": [
+            199,
+            302,
+            214,
+            412
+          ]
+        },
+        {
+          "field": "patientDob",
+          "box": [
+            226,
+            302,
+            245,
+            454
+          ]
+        },
+        {
+          "field": "patientAge",
+          "box": [
+            226,
+            302,
+            245,
+            454
+          ]
+        },
+        {
+          "field": "documentNumber",
+          "box": [
+            284,
+            302,
+            300,
+            407
+          ]
+        }
+      ]
+    }
+  },
+  "9a44485868ff1259eeedb383a6cbbc17e3dd2d7e5585c7cc020b86b2770e5e89": {
+    "file": "sam-estimate.png",
+    "extraction": {
+      "docType": "estimate",
+      "providerName": "Lakeview General Hospital",
+      "providerAddress": "88 Lakeview Parkway, Madison, WI 53703",
+      "providerPhone": "+1 (608) 555-0178",
+      "providerRegistrationNo": "WI-HOSP-002291",
+      "patientName": "Sam Okafor",
+      "patientAge": 12,
+      "patientDob": "2014-06-30",
+      "documentNumber": "LGH-EST-44187",
+      "documentDate": "2026-10-12",
+      "procedure": "Open reduction and internal fixation, femur",
+      "diagnosis": "Fracture of shaft of right femur (ICD-10 S72.301A)",
+      "currency": "USD",
+      "lineItems": [
+        {
+          "description": "Orthopaedic surgeon fee",
+          "quantity": 1,
+          "amount": 1180.0
+        },
+        {
+          "description": "Anaesthesia services",
+          "quantity": 1,
+          "amount": 520.0
+        },
+        {
+          "description": "Operating room, up to 2 hours",
+          "quantity": 1,
+          "amount": 640.0
+        },
+        {
+          "description": "Paediatric ward bed, 2 nights",
+          "quantity": 2,
+          "amount": 510.0
+        }
+      ],
+      "subtotal": 2850.0,
+      "tax": null,
+      "discount": null,
+      "insuranceCovered": 18950.0,
+      "total": 2850.0,
+      "tamperSignals": [],
+      "instructionsToReader": "",
+      "readerConfidence": 0.95,
+      "evidence": [
+        {
+          "field": "total",
+          "box": [
+            518,
+            822,
+            540,
+            941
+          ]
+        },
+        {
+          "field": "documentNumber",
+          "box": [
+            199,
+            229,
+            214,
+            363
+          ]
+        },
+        {
+          "field": "documentDate",
+          "box": [
+            219,
+            229,
+            235,
+            367
+          ]
+        },
+        {
+          "field": "patientName",
+          "box": [
+            199,
+            632,
+            214,
+            732
+          ]
+        },
+        {
+          "field": "patientAge",
+          "box": [
+            219,
+            632,
+            235,
+            776
+          ]
+        },
+        {
+          "field": "patientDob",
+          "box": [
+            219,
+            632,
+            235,
+            776
+          ]
+        },
+        {
+          "field": "providerPhone",
+          "box": [
+            78,
+            160,
+            98,
+            303
+          ]
+        },
+        {
+          "field": "providerRegistrationNo",
+          "box": [
+            78,
+            421,
+            98,
+            560
+          ]
+        }
+      ]
+    }
+  },
+  "b5b17f32133f760f2d1128095cdadef3db0cd46e5558faa75557a886bb60f6ae": {
+    "file": "sam-registration.png",
+    "extraction": {
+      "docType": "identity",
+      "providerName": "Lakeview General Hospital",
+      "providerAddress": "88 Lakeview Parkway, Madison, WI 53703",
+      "providerPhone": "+1 (608) 555-0178",
+      "providerRegistrationNo": "WI-HOSP-002291",
+      "patientName": "Sam Okafor",
+      "patientAge": 12,
+      "patientDob": "2014-06-30",
+      "documentNumber": "LGH-771390",
+      "documentDate": "2026-10-12",
+      "procedure": "",
+      "diagnosis": "",
+      "currency": "USD",
+      "lineItems": [],
+      "subtotal": null,
+      "tax": null,
+      "discount": null,
+      "insuranceCovered": null,
+      "total": null,
+      "tamperSignals": [],
+      "instructionsToReader": "",
+      "readerConfidence": 0.95,
+      "evidence": [
+        {
+          "field": "patientName",
+          "box": [
+            199,
+            302,
+            214,
+            402
+          ]
+        },
+        {
+          "field": "patientDob",
+          "box": [
+            226,
+            302,
+            245,
+            473
+          ]
+        },
+        {
+          "field": "patientAge",
+          "box": [
+            226,
+            302,
+            245,
+            473
+          ]
+        },
+        {
+          "field": "documentNumber",
+          "box": [
+            284,
+            302,
+            300,
+            407
+          ]
+        }
+      ]
+    }
+  },
+  "6737f76d65cc2daab7205447b207787fbd64a68b3a2edc2b91f09273298c4169": {
+    "file": "lucia-estimate.png",
+    "extraction": {
+      "docType": "estimate",
+      "providerName": "Riverside Children's Hospital",
+      "providerAddress": "1200 Riverside Drive, Austin, TX 78741",
+      "providerPhone": "+1 (512) 555-0142",
+      "providerRegistrationNo": "TX-HOSP-004417",
+      "patientName": "Lucia Gomez",
+      "patientAge": 4,
+      "patientDob": "2022-08-11",
+      "documentNumber": "EST-2026-09114",
+      "documentDate": "2026-10-14",
+      "procedure": "Bilateral ear tube placement and hearing test",
+      "diagnosis": "Chronic otitis media with effusion (ICD-10 H65.33)",
+      "currency": "USD",
+      "lineItems": [
+        {
+          "description": "Surgeon fee, myringotomy with tubes",
+          "quantity": 1,
+          "amount": 520.0
+        },
+        {
+          "description": "Anaesthesia services",
+          "quantity": 1,
+          "amount": 260.0
+        },
+        {
+          "description": "Audiology assessment",
+          "quantity": 1,
+          "amount": 120.0
+        },
+        {
+          "description": "Day-surgery bed",
+          "quantity": 1,
+          "amount": 90.0
+        }
+      ],
+      "subtotal": 990.0,
+      "tax": null,
+      "discount": null,
+      "insuranceCovered": 3310.0,
+      "total": 990.0,
+      "tamperSignals": [],
+      "instructionsToReader": "",
+      "readerConfidence": 0.95,
+      "evidence": [
+        {
+          "field": "total",
+          "box": [
+            518,
+            841,
+            539,
+            941
+          ]
+        },
+        {
+          "field": "documentNumber",
+          "box": [
+            198,
+            229,
+            214,
+            368
+          ]
+        },
+        {
+          "field": "documentDate",
+          "box": [
+            219,
+            229,
+            235,
+            368
+          ]
+        },
+        {
+          "field": "patientName",
+          "box": [
+            199,
+            632,
+            214,
+            742
+          ]
+        },
+        {
+          "field": "patientAge",
+          "box": [
+            219,
+            632,
+            237,
+            768
+          ]
+        },
+        {
+          "field": "patientDob",
+          "box": [
+            219,
+            632,
+            237,
+            768
+          ]
+        },
+        {
+          "field": "providerPhone",
+          "box": [
+            78,
+            160,
+            98,
+            300
+          ]
+        },
+        {
+          "field": "providerRegistrationNo",
+          "box": [
+            78,
+            419,
+            98,
+            558
+          ]
+        }
+      ]
+    }
+  },
+  "52299024ae965a7e88da702abc16600746868d01cdb5ca438f81e9cb827248d7": {
+    "file": "lucia-registration.png",
+    "extraction": {
+      "docType": "identity",
+      "providerName": "Riverside Children's Hospital",
+      "providerAddress": "1200 Riverside Drive, Austin, TX 78741",
+      "providerPhone": "+1 (512) 555-0142",
+      "providerRegistrationNo": "TX-HOSP-004417",
+      "patientName": "Lucia Gomez",
+      "patientAge": 4,
+      "patientDob": "2022-08-11",
+      "documentNumber": "RCH-5534470",
+      "documentDate": "2026-10-14",
+      "procedure": "",
+      "diagnosis": "",
+      "currency": "USD",
+      "lineItems": [],
+      "subtotal": null,
+      "tax": null,
+      "discount": null,
+      "insuranceCovered": null,
+      "total": null,
+      "tamperSignals": [],
+      "instructionsToReader": "",
+      "readerConfidence": 0.95,
+      "evidence": [
+        {
+          "field": "patientName",
+          "box": [
+            199,
+            302,
+            214,
+            411
+          ]
+        },
+        {
+          "field": "patientDob",
+          "box": [
+            226,
+            302,
+            245,
+            465
+          ]
+        },
+        {
+          "field": "patientAge",
+          "box": [
+            226,
+            302,
+            245,
+            465
+          ]
+        },
+        {
+          "field": "documentNumber",
+          "box": [
+            284,
+            302,
+            300,
+            423
+          ]
+        }
+      ]
+    }
   }
 }

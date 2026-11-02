@@ -34,7 +34,7 @@ export function providers(): Provider[] {
       registrationNo: "WI-HOSP-002291",
       phone: "+1 (608) 555-0178",
       address: "88 Lakeview Parkway, Madison, WI 53703",
-      paypalEmail: process.env.PROVIDER2_PAYPAL_EMAIL || "accounts@lakeview-general.example.com",
+      paypalEmail: process.env.PROVIDER2_PAYPAL_EMAIL || process.env.PROVIDER_PAYPAL_EMAIL || "accounts@lakeview-general.example.com",
       verifiedSince: "2025-06-02",
     },
     {

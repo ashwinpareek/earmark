@@ -929,3 +929,66 @@ main h1 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.025em;
 main h2:not(.sec-head h2):not(.band h2):not(.story-head h2) { font-family: var(--font); font-weight: 750; letter-spacing: -0.02em; }
 .scoreboard { border-radius: 20px; overflow: hidden; }
 .tabs, .roles, .seg { border-radius: 999px; }
+
+/* ══ Giving Agent ══════════════════════════════════════════════════════════ */
+.hx-sm { padding: 72px 0 120px; }
+.hx-sm h1 { font-size: clamp(36px, 4.6vw, 62px); max-width: 18ch; margin-top: 20px; }
+.ga { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 24px; margin: -72px 0 88px; position: relative; z-index: 2; align-items: start; }
+.ga-loading { margin: -60px 0 80px; padding: 40px; text-align: center; background: var(--surface); border-radius: 24px; box-shadow: var(--shadow); position: relative; z-index: 2; }
+.ga-side { display: grid; gap: 16px; position: sticky; top: 84px; }
+.ga-mandate { padding: 24px; border-radius: 24px; display: grid; gap: 12px; }
+.ga-mandate h3 { font-family: var(--serif); font-weight: 560; font-size: 22px; }
+.ga-mandate label { display: grid; gap: 6px; font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
+.ga-mandate .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ga-rules { list-style: none; padding: 12px 14px; margin: 0; border-radius: 14px; background: var(--rule-2); display: grid; gap: 6px; font-size: 13.5px; color: var(--ink-2); }
+.ga-rules li::before { content: "✓"; color: var(--paid); font-weight: 800; margin-right: 8px; }
+.ga-m-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.ga-status { font-size: 12.5px; font-weight: 700; padding: 5px 11px; border-radius: 999px; background: var(--warn-bg); color: var(--warn); }
+.ga-status.active { background: var(--paid-bg); color: var(--paid); }
+.ga-cause { font-family: var(--serif); font-size: 19px; line-height: 1.35; color: var(--ink); }
+.ga-meter, .ga-bar { height: 8px; border-radius: 999px; background: var(--rule-2); overflow: hidden; display: block; }
+.ga-meter i, .ga-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--warm), var(--warm-2)); transition: width 800ms var(--ease); }
+.ga-gifts { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; border-top: 1px solid var(--rule); padding-top: 12px; }
+.ga-gifts li { display: grid; gap: 2px; font-size: 14px; }
+.ga-cat { padding: 20px 20px 12px; border-radius: 24px; background: var(--surface); border: 1px solid var(--rule); box-shadow: var(--shadow); }
+.ga-cat h3 { font-size: 14px; font-weight: 750; color: var(--muted); margin-bottom: 10px; }
+.ga-cat ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.ga-cat a { display: grid; gap: 4px; padding: 10px; margin: 0 -10px; border-radius: 14px; text-decoration: none; font-size: 14px; }
+.ga-cat a:hover { background: var(--rule-2); }
+.ga-cat-top { display: flex; justify-content: space-between; gap: 8px; }
+.ga-cat .ok { font-size: 12px; font-weight: 700; color: var(--paid); }
+.ga-main { background: var(--surface); border: 1px solid var(--rule); border-radius: 28px; box-shadow: 0 40px 80px -48px rgba(18, 22, 53, 0.45); padding: 26px; display: grid; gap: 14px; min-height: 560px; grid-template-rows: 1fr auto auto; }
+.ga-log { display: grid; align-content: start; gap: 22px; max-height: 64vh; overflow: auto; padding: 4px; }
+.ga-empty { padding: 48px 20px; text-align: center; max-width: 52ch; margin: 0 auto; }
+.ga-empty-h { font-family: var(--serif); font-size: 28px; font-weight: 520; letter-spacing: -0.02em; margin-bottom: 10px; }
+.ga-ask { justify-self: end; max-width: 80%; margin-left: auto; padding: 12px 16px; border-radius: 18px 18px 4px 18px; background: var(--night); color: #fff; font-weight: 600; width: fit-content; }
+.ga-turn { display: grid; gap: 12px; }
+.ga-steps { list-style: none; margin: 0; padding: 0 0 0 4px; display: grid; gap: 10px; position: relative; }
+.ga-steps::before { content: ""; position: absolute; left: 15px; top: 14px; bottom: 14px; width: 2px; background: var(--rule-2); }
+.ga-step { display: grid; grid-template-columns: 24px 1fr; gap: 14px; align-items: start; font-size: 15px; animation: step-in 420ms var(--ease) both; position: relative; }
+@keyframes step-in { from { opacity: 0; transform: translateY(6px); } }
+.ga-ico { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); border: 2px solid var(--rule); position: relative; z-index: 1; margin-top: -1px; }
+.ga-ico.tool { border-color: var(--held); background: var(--held-bg); }
+.ga-ico.think { border-color: #9a7bff; background: #f0ebff; }
+.ga-ico.yes { border-color: var(--paid); background: var(--paid) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 12.5l3.2 3.2L17 9' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 100%; }
+.ga-ico.no { border-color: var(--fail); background: var(--fail-bg); }
+.ga-ico.pp { border-color: #f2b544; background: #fdf3dc; }
+.ga-ico.agent { border: 0; background: linear-gradient(135deg, var(--warm), #9a7bff); }
+.ga-step.pending { color: var(--muted); }
+.ga-step.think > span:last-child { color: var(--ink-2); font-style: italic; }
+.ga-step.refused { color: var(--fail); }
+.ga-gift, .ga-approve { display: grid; gap: 4px; padding: 14px 16px; border-radius: 16px; background: var(--paid-bg); border: 1px solid color-mix(in srgb, var(--paid) 25%, transparent); }
+.ga-approve { background: #fffaf0; border-color: #f6dfa8; gap: 8px; }
+.ga-gift b, .ga-approve b { font-size: 16px; }
+.ga-step.final > span:last-child { display: grid; gap: 4px; padding: 14px 16px; border-radius: 18px 18px 18px 4px; background: var(--rule-2); line-height: 1.55; }
+.ga-input { display: flex; gap: 10px; }
+.ga-input input { flex: 1; padding: 14px 18px; border-radius: 999px; font-size: 15.5px; }
+.ga-ideas { display: flex; flex-wrap: wrap; gap: 8px; }
+.ga-ideas .chip { cursor: pointer; padding: 7px 13px; font: inherit; font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
+.ga-ideas .chip:hover { border-color: var(--ink-2); }
+@media (max-width: 900px) {
+  .ga { grid-template-columns: 1fr; }
+  .ga-side { position: static; order: 0; }
+  .ga-main { order: -1; min-height: 460px; }
+}
+.nav-agent { color: var(--held) !important; }

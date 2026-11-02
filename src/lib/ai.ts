@@ -136,3 +136,39 @@ export function parseJsonLoose<T>(text: string): T {
     throw new AIError("Model did not return valid JSON");
   }
 }
+
+/** Gemini with tools (function calling), for agents. Returns the model's content (parts may hold
+ *  functionCall entries, and thought signatures that must be sent back unchanged). Busy models
+ *  fall through to the configured fallbacks, as in llmJson. */
+export async function geminiWithTools(body: { systemInstruction: unknown; contents: unknown[]; tools: unknown[] }): Promise<{ parts: { text?: string; functionCall?: { name: string; args?: Record<string, unknown> } }[]; model: string }> {
+  if (aiProvider() !== "gemini") throw new AIError("The Giving Agent uses Gemini tool calling; set GEMINI_API_KEY.");
+  const model = aiModelName();
+  const fallbacks = (process.env.GEMINI_AGENT_FALLBACK_MODELS ?? "gemini-flash-latest,gemini-3.8-flash,gemini-3.1-flash-lite,gemini-flash-lite-latest").split(",").map((m) => m.trim()).filter((m) => m && m !== model);
+  let last = "";
+  const deadline = Date.now() + Number(process.env.AGENT_AI_BUDGET_MS ?? 50_000);
+  for (const m of [model, ...fallbacks, model]) {
+    const left = deadline - Date.now();
+    if (left < 3000) break;
+    let res: Response;
+    try {
+      res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, {
+        method: "POST",
+        signal: AbortSignal.timeout(Math.min(left, 18_000)),
+        headers: { "content-type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY ?? "" },
+        body: JSON.stringify({ ...body, toolConfig: { functionCallingConfig: { mode: "AUTO" } }, generationConfig: { temperature: 0.2, maxOutputTokens: 2048 } }),
+      });
+    } catch (e) {
+      last = `Gemini ${m} timed out`;
+      console.warn(`[ai] ${last}; trying the next model`);
+      continue;
+    }
+    if (res.ok) {
+      const j = (await res.json()) as { candidates?: { content?: { parts?: { text?: string; functionCall?: { name: string; args?: Record<string, unknown> } }[] } }[] };
+      return { parts: j.candidates?.[0]?.content?.parts ?? [], model: m };
+    }
+    last = `Gemini ${res.status}: ${(await res.text()).slice(0, 200)}`;
+    if (![429, 500, 503].includes(res.status)) break;
+    console.warn(`[ai] Gemini ${m} busy (${res.status}); trying the next model`);
+  }
+  throw new AIError(last);
+}

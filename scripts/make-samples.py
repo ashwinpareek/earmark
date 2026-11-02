@@ -459,6 +459,67 @@ record(p, base(evidence=ev(patientName=ar_name, patientDob=ar_dob, patientAge=ar
                providerPhone=RIVERSIDE["phone"], providerRegistrationNo=RIVERSIDE["reg"], patientName="Aarav Shah",
                patientAge=6, patientDob="2020-01-19", documentNumber="RCH-5532218", documentDate="2026-10-05"))
 
+# ─────────────────────── The public catalog: three more verified families ───────────────────────
+# Real campaigns anyone can give to (and that the Giving Agent and the MCP server choose from).
+LAKEVIEW = dict(name="Lakeview General Hospital", address="88 Lakeview Parkway, Madison, WI 53703",
+                phone="+1 (608) 555-0178", reg="WI-HOSP-002291")
+
+def family(hosp, brand, est_no, issued, issued_iso, name, age, dob_disp, dob_iso, mrn, procedure, diagnosis, rows, gross, insurer, guardian, registered, slug):
+    total = round(sum(r[2] for r in rows), 2)  # the amount column is the line total, as on Maya's estimate
+    img, d = page()
+    phone_b, reg_b = letterhead(d, hosp, brand)
+    d.text((80, 230), "Patient Cost Estimate", font=BOLD(40), fill=INK)
+    d.text((80, 286), "Amounts shown are the patient's responsibility after the insurer's pre-authorisation.", font=REG(19), fill=MUTED)
+    n_b = kv(d, 80, 350, "Estimate no.", est_no)
+    dt_b = kv(d, 80, 386, "Date issued", issued)
+    kv(d, 80, 422, "Valid until", "31 December 2026")
+    nm_b = kv(d, 660, 350, "Patient", name, 130)
+    ag_b = kv(d, 660, 386, "Age / DOB", f"{age}  ·  {dob_disp}", 130)
+    kv(d, 660, 422, "MRN", mrn, 130)
+    kv(d, 80, 480, "Procedure", procedure)
+    kv(d, 80, 516, "Diagnosis", diagnosis)
+    y, t_b = table(d, 590, rows, "Patient responsibility", total, extra=[("Gross charges", gross), ("Insurer pre-authorised", insurer)])
+    d.text((80, y + 10), "This is an estimate, not a bill. Final charges depend on the care provided.", font=REG(18), fill=MUTED)
+    d.text((80, y + 40), "Payments: patient accounts office, quoting the estimate number.", font=REG(18), fill=MUTED)
+    signature(d, 80, y + 120, "Morgan Ellis", "Patient Financial Services")
+    stamp(img, hosp["name"].upper().replace(" HOSPITAL", ""), "BILLING OFFICE", (760, y + 90), color=brand)
+    pth = finish(img, f"{slug}-estimate.png")
+    record(pth, base(evidence=ev(total=t_b, documentNumber=n_b, documentDate=dt_b, patientName=nm_b, patientAge=ag_b, patientDob=ag_b, providerPhone=phone_b, providerRegistrationNo=reg_b),
+                     docType="estimate", providerName=hosp["name"], providerAddress=hosp["address"], providerPhone=hosp["phone"],
+                     providerRegistrationNo=hosp["reg"], patientName=name, patientAge=age, patientDob=dob_iso, documentNumber=est_no,
+                     documentDate=issued_iso, procedure=procedure, diagnosis=diagnosis,
+                     lineItems=[dict(description=r[0], quantity=r[1], amount=r[2]) for r in rows],
+                     subtotal=total, insuranceCovered=insurer, total=total))
+    img, d = page()
+    letterhead(d, hosp, brand)
+    d.text((80, 230), "Patient Registration Card", font=BOLD(40), fill=INK)
+    d.rounded_rectangle((80, 310, W - 80, 760), radius=24, outline=RULE, width=3)
+    rn = kv(d, 120, 350, "Patient name", name, 260)
+    rd = kv(d, 120, 400, "Date of birth", f"{dob_disp} (age {age})", 260)
+    rm = kv(d, 120, 500, "MRN", mrn, 260)
+    kv(d, 120, 550, "Guardian", guardian, 260)
+    kv(d, 120, 600, "Registered", registered, 260)
+    d.rectangle((W - 330, 350, W - 120, 600), outline=RULE, width=2)
+    d.text((W - 225, 475), "photo", font=REG(18), fill=MUTED, anchor="mm")
+    stamp(img, "REGISTERED", "ADMISSIONS DESK", (760, 640), color=(0, 110, 80))
+    pth = finish(img, f"{slug}-registration.png")
+    record(pth, base(evidence=ev(patientName=rn, patientDob=rd, patientAge=rd, documentNumber=rm), docType="identity", providerName=hosp["name"],
+                     providerAddress=hosp["address"], providerPhone=hosp["phone"], providerRegistrationNo=hosp["reg"], patientName=name,
+                     patientAge=age, patientDob=dob_iso, documentNumber=mrn, documentDate=issued_iso))
+
+family(LAKEVIEW, (122, 38, 96), "LGH-EST-44120", "9 October 2026", "2026-10-09", "Leila Haddad", 7, "2 Feb 2019", "2019-02-02", "LGH-771204",
+       "Burn wound care and split-thickness skin graft", "Second-degree burns, left forearm (ICD-10 T22.212A)",
+       [("Surgeon fee, skin graft", 1, 1250.00), ("Anaesthesia services", 1, 540.00), ("Burn unit bed, 3 nights", 3, 930.00), ("Dressings and wound care supplies", 1, 280.00), ("Medications (estimated)", 1, 200.00)],
+       14600.00, 11010.00, "Rania Haddad (mother)", "8 October 2026, emergency department", "leila")
+family(LAKEVIEW, (122, 38, 96), "LGH-EST-44187", "12 October 2026", "2026-10-12", "Sam Okafor", 12, "30 Jun 2014", "2014-06-30", "LGH-771390",
+       "Open reduction and internal fixation, femur", "Fracture of shaft of right femur (ICD-10 S72.301A)",
+       [("Orthopaedic surgeon fee", 1, 1180.00), ("Anaesthesia services", 1, 520.00), ("Operating room, up to 2 hours", 1, 640.00), ("Paediatric ward bed, 2 nights", 2, 510.00)],
+       21800.00, 18950.00, "Chidi Okafor (father)", "11 October 2026, emergency department", "sam")
+family(RIVERSIDE, BRAND, "EST-2026-09114", "14 October 2026", "2026-10-14", "Lucia Gomez", 4, "11 Aug 2022", "2022-08-11", "RCH-5534470",
+       "Bilateral ear tube placement and hearing test", "Chronic otitis media with effusion (ICD-10 H65.33)",
+       [("Surgeon fee, myringotomy with tubes", 1, 520.00), ("Anaesthesia services", 1, 260.00), ("Audiology assessment", 1, 120.00), ("Day-surgery bed", 1, 90.00)],
+       4300.00, 3310.00, "Ana Gomez (mother)", "13 October 2026, outpatient clinic", "lucia")
+
 with open(os.path.join(ROOT, "src", "lib", "sample-extractions.json"), "w") as f:
     json.dump(manifest, f, indent=2)
 print("wrote", len(manifest), "samples")

@@ -28,3 +28,13 @@ export function sameOrigin(req: Request) {
   try { o = new URL(origin).host; } catch { /* "null" or junk */ }
   if (!host || o !== host) throw new HttpError(403, "Cross-site request refused.");
 }
+
+const hits = new Map<string, number[]>();
+/** A small in-memory limiter: at most `n` calls per `windowMs` for a key. */
+export function rateLimit(key: string, n: number, windowMs: number) {
+  const now = Date.now();
+  const recent = (hits.get(key) ?? []).filter((t) => now - t < windowMs);
+  if (recent.length >= n) throw new HttpError(429, "Too many requests. Wait a minute and try again.");
+  recent.push(now);
+  hits.set(key, recent);
+}
