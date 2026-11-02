@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 // Phones get a floating dock within thumb reach instead of a crowded top bar.
 const ALL = [
+  { href: "/agent", label: "Giving Agent" },
   { href: "/lab", label: "Forgery Lab" },
   { href: "/campaigns", label: "Campaigns" },
   { href: "/radar", label: "Reuse radar" },

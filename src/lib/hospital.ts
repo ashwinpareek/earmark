@@ -22,6 +22,10 @@ export const HOSPITAL_RECORDS: HospitalRecord[] = [
   { providerId: "prov_riverside", documentNumber: "EST-2026-08812", patientName: "Maya Rodriguez", patientDob: "2017-03-04", total: 2400, issued: "2026-10-02" },
   { providerId: "prov_riverside", documentNumber: "INV-2026-11504", patientName: "Maya Rodriguez", patientDob: "2017-03-04", total: 2340, issued: "2026-10-08" },
   { providerId: "prov_riverside", documentNumber: "EST-2026-08907", patientName: "Aarav Shah", patientDob: "2020-01-19", total: 1800, issued: "2026-10-06" },
+  // the public catalog (see scripts/make-samples.py)
+  { providerId: "prov_lakeview", documentNumber: "LGH-EST-44120", patientName: "Leila Haddad", patientDob: "2019-02-02", total: 3200, issued: "2026-10-09" },
+  { providerId: "prov_lakeview", documentNumber: "LGH-EST-44187", patientName: "Sam Okafor", patientDob: "2014-06-30", total: 2850, issued: "2026-10-12" },
+  { providerId: "prov_riverside", documentNumber: "EST-2026-09114", patientName: "Lucia Gomez", patientDob: "2022-08-11", total: 990, issued: "2026-10-14" },
 ];
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");

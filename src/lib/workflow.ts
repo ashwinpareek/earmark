@@ -1,4 +1,4 @@
-import { addEvent, addFingerprints, confirmMovements, fingerprints, getCampaign, HttpError, listCampaigns, saveCampaign, spaceOf, tx, updateCampaign } from "./store";
+import { addEvent, addFingerprints, confirmMovements, fingerprints, getCampaign, getMandate, HttpError, listCampaigns, saveCampaign, spaceOf, tx, updateCampaign, updateMandate } from "./store";
 import type { Campaign, Doc, DocKind, Donation, Extraction } from "./types";
 import { isCampaignPayee, provider as getProvider } from "./providers";
 import { readFile, storeFile } from "./files";
@@ -12,6 +12,7 @@ import { planCaptures } from "./settlement";
 import { GOAL_BUFFER, MIN_OFFER_CENTS, OFFER_DAYS, nextPatients, offerOpen, offeredCents, planOffers } from "./forward";
 import { answerQuestion } from "./agents";
 import * as paypal from "./paypal";
+import { checkGift, type Candidate } from "./mandate";
 import { appBaseUrl, fmtMoney, fromCents, nowIso, toCents, uid } from "./util";
 
 // The campaign state machine. Every transition is guarded and written to the campaign
@@ -226,7 +227,22 @@ export type PledgeInput = {
   surplus?: "release" | "offer";
   /** Accepting a "pass it on" offer from another campaign's receipt. */
   fromOffer?: { campaignId: string; donationId: string };
+  /** Also save the donor's PayPal for their Giving Agent (the first gift of a mandate). */
+  vault?: boolean;
+  /** Where PayPal sends the donor after approving (redirect flow, e.g. a pledge started by an AI
+   *  assistant over MCP). PayPal appends ?token=<orderId>. Defaults to the campaign page. */
+  returnPath?: string;
 };
+
+/** How much more this campaign may take in pledges, in cents. */
+async function roomFor(c: Campaign, reserved = 0): Promise<number> {
+  const pledged = c.donations.filter((x) => x.status === "held").reduce((s, x) => s + toCents(x.pledged), 0);
+  // Open offers from other receipts keep their place; an accepted offer uses its own place.
+  const offered = offeredCents(c.id, await listCampaigns([spaceOf(c)]));
+  // Pledges close once the goal is reached; the pledge that crosses it may overshoot by up to
+  // 10%, a buffer for holds that later lapse.
+  return pledged >= toCents(c.goal) && !reserved ? 0 : Math.floor(toCents(c.goal) * MAX_OVERPLEDGE) - pledged - offered + reserved;
+}
 
 export async function createDonationOrder(id: string, d: PledgeInput) {
   const c = await getCampaign(id);
@@ -244,12 +260,7 @@ export async function createDonationOrder(id: string, d: PledgeInput) {
     forwardedFrom = { campaignId: src.id, donationId: sd.id, patient: src.patient.displayName };
     reserved = toCents(sd.offer.amount);
   }
-  const pledged = c.donations.filter((x) => x.status === "held").reduce((s, x) => s + toCents(x.pledged), 0);
-  // Open offers from other receipts keep their place; an accepted offer uses its own place.
-  const offered = offeredCents(c.id, await listCampaigns([spaceOf(c)]));
-  // Pledges close once the goal is reached; the pledge that crosses it may overshoot by up to
-  // 10%, a buffer for holds that later lapse.
-  const room = pledged >= toCents(c.goal) && !reserved ? 0 : Math.floor(toCents(c.goal) * MAX_OVERPLEDGE) - pledged - offered + reserved;
+  const room = await roomFor(c, reserved);
   if (room <= 0) throw new HttpError(409, "This campaign is fully pledged. Thank you! Another verified patient may still need help.");
   if (cents > room) throw new HttpError(409, `This campaign can use at most ${fmtMoney(fromCents(room), c.currency)} more.`);
   const donation: Donation = {
@@ -271,18 +282,19 @@ export async function createDonationOrder(id: string, d: PledgeInput) {
     description: `Earmark hold for ${c.patient.displayName}'s hospital bill`,
     customId: `${c.id}:${donation.id}`,
     invoiceId: `${donation.id}`,
-    returnUrl: `${base}/c/${c.id}`,
+    returnUrl: `${base}${d.returnPath ?? `/c/${c.id}`}`,
     cancelUrl: `${base}/c/${c.id}`,
     payeeEmail: paypal.payeeMode() === "direct" ? needProvider(c.providerId).paypalEmail : undefined,
+    vault: d.vault,
   });
   donation.orderId = order.id;
   await updateCampaign(id, (cc) => {
     cc.donations.push(donation);
   });
-  return { orderId: order.id, donationId: donation.id };
+  return { orderId: order.id, donationId: donation.id, approveUrl: order.approveUrl };
 }
 
-export async function confirmDonation(id: string, donationId: string, orderId: string) {
+export async function confirmDonation(id: string, donationId: string, orderId: string, opts: { onAuthorized?: (auth: paypal.AuthorizationResult) => Promise<void> | void } = {}) {
   const c = await getCampaign(id);
   if (!c) throw new HttpError(404, "Campaign not found");
   const d0 = c.donations.find((x) => x.id === donationId);
@@ -290,6 +302,7 @@ export async function confirmDonation(id: string, donationId: string, orderId: s
   if (d0.status === "held") return c;
   if (d0.orderId !== orderId) throw new HttpError(400, "Order doesn't belong to this donation");
   const auth = await paypal.authorizeOrder(orderId);
+  await opts.onAuthorized?.(auth);
   const out = await updateCampaign(id, (cc) => {
     const d = cc.donations.find((x) => x.id === donationId)!;
     d.status = "held";
@@ -835,3 +848,95 @@ export async function monitorHolds(now = new Date()) {
 }
 
 export { listCampaigns, tx };
+
+// ─── Giving Agent ───────────────────────────────────────────────────────────
+// The agent (an AI) only proposes. These functions apply the donor's mandate rules (mandate.ts)
+// and, if every rule passes, place a PayPal hold with the donor's saved PayPal. A hold is still
+// only an authorization: it can be collected solely for a bill the hospital confirms.
+
+export function candidateOf(c: Campaign | undefined, roomCents: number): Candidate | undefined {
+  if (!c) return undefined;
+  const checks = c.verification?.checks ?? [];
+  return { id: c.id, status: c.status, checksPassed: checks.filter((k) => k.status === "pass").length, checksTotal: checks.length, checksFailed: checks.filter((k) => k.status === "fail").length, stillNeedsCents: roomCents, patient: c.patient.displayName };
+}
+
+/** The donor's first gift, approved in PayPal's own window, also saves their PayPal for the agent. */
+export async function confirmMandateGift(mandateId: string, campaignId: string, donationId: string, orderId: string, reason: string) {
+  const m = await getMandate(mandateId);
+  if (!m) throw new HttpError(404, "Mandate not found");
+  let vaultId: string | undefined;
+  let payerEmail: string | undefined;
+  const c = await confirmDonation(campaignId, donationId, orderId, { onAuthorized: (a) => { vaultId = a.vaultId; payerEmail = a.payerEmail; } });
+  const d = c.donations.find((x) => x.id === donationId)!;
+  await updateMandate(mandateId, (mm) => {
+    if (vaultId) { mm.vaultId = vaultId; mm.status = "active"; }
+    if (payerEmail) mm.payerEmail = payerEmail;
+    mm.gifts.push({ campaignId, donationId, patient: c.patient.displayName, amount: d.pledged, reason, authorizationId: d.authorizationId, at: nowIso(), by: "donor" });
+  });
+  return { campaign: c, activated: Boolean(vaultId) };
+}
+
+/** A gift the agent proposed. Every mandate rule is checked here, in code, before PayPal is called. */
+export async function placeAgentHold(mandateId: string, campaignId: string, cents: number, reason: string) {
+  const m = await getMandate(mandateId);
+  if (!m) throw new HttpError(404, "Mandate not found");
+  const c = await getCampaign(campaignId);
+  const verdict = checkGift(m, candidateOf(c, c ? await roomFor(c) : 0), cents);
+  if (!verdict.ok) return { placed: false as const, why: verdict.why };
+  if (!m.vaultId) return { placed: false as const, why: "The donor hasn't saved PayPal for the agent yet." };
+  const donationId = uid("don");
+  const amount = fromCents(cents);
+  const hold = await paypal.createVaultedHold({
+    vaultId: m.vaultId,
+    amount,
+    currency: c!.currency,
+    description: `Earmark hold for ${c!.patient.displayName}'s hospital bill (Giving Agent)`,
+    customId: `${c!.id}:${donationId}`,
+    invoiceId: donationId,
+    requestId: `agent-${mandateId}-${c!.id}`,
+  });
+  const at = nowIso();
+  const out = await updateCampaign(campaignId, (cc) => {
+    cc.donations.push({
+      id: donationId,
+      donorName: m.donorName || "A friend",
+      donorEmail: m.donorEmail,
+      anonymous: false,
+      message: "",
+      pledged: amount,
+      status: "held",
+      createdAt: at,
+      surplus: "release",
+      orderId: hold.orderId,
+      authorizationId: hold.authorizationId,
+      authorizationExpiresAt: hold.expiresAt,
+      authorizedAt: at,
+      viaAgent: { mandateId, reason: reason.slice(0, 280) },
+    });
+    cc.movements.push({ id: uid("mv"), type: "hold", amount, currency: cc.currency, paypalId: hold.authorizationId, status: hold.status, donationId, at, note: "Placed by the donor's Giving Agent with their saved PayPal, within their mandate; not charged" });
+    addEvent(cc, { actor: "paypal", kind: "donation.held", message: `${m.donorName || "A donor"}'s Giving Agent pledged ${fmtMoney(amount, cc.currency)}. It's a hold on their PayPal, not a charge.` });
+    return structuredClone(cc);
+  });
+  await updateMandate(mandateId, (mm) => { mm.gifts.push({ campaignId, donationId, patient: out.patient.displayName, amount, reason: reason.slice(0, 280), authorizationId: hold.authorizationId, at, by: "agent" }); });
+  return { placed: true as const, authorizationId: hold.authorizationId, orderId: hold.orderId, amount, patient: out.patient.displayName, campaignId, donationId };
+}
+
+/** The donor stops their agent. Existing holds stay (they're the donor's gifts); no new ones. */
+export async function revokeMandate(mandateId: string) {
+  const m = await getMandate(mandateId);
+  if (!m) throw new HttpError(404, "Mandate not found");
+  let tokenDeleted = false;
+  if (m.vaultId) tokenDeleted = await paypal.deleteVaultToken(m.vaultId).catch(() => false);
+  await updateMandate(mandateId, (mm) => { mm.status = "revoked"; mm.revokedAt = nowIso(); delete mm.vaultId; });
+  return { revoked: true, tokenDeleted };
+}
+
+/** The donor came back from PayPal's own approval page (redirect flow). Find the pledge by its
+ *  PayPal order and place the hold. Returns where to send them next. */
+export async function confirmByOrder(campaignId: string, orderId: string) {
+  const c = await getCampaign(campaignId);
+  const d = c?.donations.find((x) => x.orderId === orderId);
+  if (!c || !d) throw new HttpError(404, "Pledge not found");
+  if (d.status !== "held") await confirmDonation(c.id, d.id, orderId);
+  return `/c/${c.id}/receipt/${d.id}`;
+}

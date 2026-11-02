@@ -135,6 +135,8 @@ export interface Donation {
   surplus?: "release" | "offer";
   /** Set when this pledge was made from such an offer on another campaign's receipt. */
   forwardedFrom?: { campaignId: string; donationId: string; patient: string };
+  /** Placed by the donor's Giving Agent within their mandate (see mandate.ts). */
+  viaAgent?: { mandateId: string; reason: string };
   /** The offer shown on this donor's receipt, if they asked for one. */
   offer?: SurplusOffer;
 }

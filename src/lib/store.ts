@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { Campaign, Extraction, TimelineEvent } from "./types";
+import type { Mandate } from "./mandate";
 import { uid, nowIso } from "./util";
 import { loadState, saveState, usingPostgres } from "./pg";
 
@@ -44,6 +45,8 @@ interface DB {
   webhookEvents: { id: string; type: string; at: string; verified: boolean }[];
   /** The AI's reading of each exact file (by SHA-256), so the same bytes are never read twice. */
   reads?: Record<string, CachedRead>;
+  /** Giving Agent mandates, by id. */
+  mandates?: Record<string, Mandate>;
 }
 
 export interface CachedRead { extraction: Extraction; model: string; at: string }
@@ -217,4 +220,29 @@ export async function recordLabAttempt(a: LabAttempt) {
 export async function labStats(): Promise<LabStats> {
   const db = await load();
   return structuredClone(db.lab ?? { attempts: 0, held: 0, requestedCents: 0, recent: [] });
+}
+
+export async function getMandate(id: string): Promise<Mandate | undefined> {
+  return tx((db) => (db.mandates?.[id] ? structuredClone(db.mandates[id]) : undefined));
+}
+
+export async function mandateForSpace(space: string): Promise<Mandate | undefined> {
+  return tx((db) => {
+    const ms = Object.values(db.mandates ?? {}).filter((m) => m.space === space && m.status !== "revoked");
+    const m = ms.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+    return m ? structuredClone(m) : undefined;
+  });
+}
+
+export async function updateMandate<T>(id: string, fn: (m: Mandate) => T): Promise<T> {
+  return tx((db) => {
+    db.mandates ??= {};
+    const m = db.mandates[id];
+    if (!m) throw new HttpError(404, "Mandate not found");
+    return fn(m);
+  });
+}
+
+export async function saveMandate(m: Mandate) {
+  return tx((db) => { db.mandates ??= {}; db.mandates[m.id] = m; });
 }
