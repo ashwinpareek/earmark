@@ -4,9 +4,15 @@ import DemoButton from "@/components/DemoButtons";
 import ResetDemo from "@/components/ResetDemo";
 import LabScore from "@/components/LabScore";
 import PledgeStory from "@/components/PledgeStory";
+import { catalog } from "@/lib/catalog";
 import Logo, { MARK } from "@/components/Logo";
 
-export default function Home() {
+const money = (v: string) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(Number(v));
+
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const families = await catalog().catch(() => []);
   return (
     <>
     <section className="hx" aria-labelledby="hx-h">
@@ -23,9 +29,10 @@ export default function Home() {
             and anything the bill doesn&apos;t need is never charged.
           </p>
           <div className="hx-cta">
-            <DemoButton scenario="honest" label="Help a verified patient" className="btn warm lg" />
-            <Link href="/lab" className="btn glass lg">Try to forge a bill</Link>
+            <a href="#families" className="btn warm lg">Help a verified patient</a>
+            <Link href="/agent" className="btn glass lg">Meet your Giving Agent</Link>
           </div>
+          <p className="hx-alt">Or <Link href="/lab">try to forge a bill</Link> and watch Earmark catch it.</p>
           <ul className="hx-trust" aria-label="How your gift is protected">
             <li><b>Held</b> by PayPal, not charged</li>
             <li><b>Read</b> by Gemini, checked by rules</li>
@@ -39,40 +46,40 @@ export default function Home() {
     </section>
 
     <div className="wrap">
-      <section className="patients" aria-labelledby="pt-h">
+      <section className="patients" id="families" aria-labelledby="pt-h">
         <div className="sec-head">
           <h2 id="pt-h">Families you can help today</h2>
-          <p>Every campaign starts with the hospital&apos;s own documents, checked before anyone can give. <span className="muted">Demo patients are fictional.</span></p>
+          <p>Every campaign starts with the hospital&apos;s own documents, checked before anyone can give. Gifts are PayPal holds, paid only to the hospital. <span className="muted">Patients and hospitals are fictional; PayPal runs on its sandbox.</span></p>
         </div>
         <div className="pt-grid">
-          <article className="pt-card">
-            <div className="pt-top">
-              <span className="pt-avatar a1" aria-hidden="true">M</span>
-              <span className="pt-badge">Verified · 10 of 10 checks</span>
-            </div>
-            <h3>Help Maya recover from emergency surgery</h3>
-            <p className="pt-meta">Maya, 9 · Appendectomy · Riverside Children&apos;s Hospital, Austin</p>
-            <div className="pt-bar" aria-hidden="true"><span style={{ width: "0%" }} /></div>
-            <p className="pt-goal"><b>$2,400</b> verified goal · be the first to give</p>
-            <DemoButton scenario="honest" label="Give to Maya" className="btn warm" />
-          </article>
-          <article className="pt-card">
-            <div className="pt-top">
-              <span className="pt-avatar a2" aria-hidden="true">A</span>
-              <span className="pt-badge">Verified · hospital confirmed</span>
-            </div>
-            <h3>Help Aarav breathe and sleep again</h3>
-            <p className="pt-meta">Aarav · Tonsil and adenoid surgery · Riverside Children&apos;s Hospital</p>
-            <div className="pt-bar" aria-hidden="true"><span style={{ width: "67%" }} /></div>
-            <p className="pt-goal"><b>$1,200</b> held of <b>$1,800</b> · 3 donors</p>
-            <Link href="/campaigns" className="btn soft">See Aarav&apos;s campaign</Link>
-          </article>
-          <article className="pt-card pt-start">
-            <span className="pt-avatar a3" aria-hidden="true">+</span>
-            <h3>Raising money for someone&apos;s care?</h3>
-            <p className="pt-meta">Upload the hospital&apos;s estimate. Earmark checks it in seconds, and donations go straight to the hospital, so nobody can question where they went.</p>
-            <Link href="/start" className="btn soft">Start a campaign</Link>
-          </article>
+          {families.map((c, i) => {
+            const pct = Math.min(100, (Number(c.held) / Number(c.goal)) * 100);
+            return (
+              <article className="pt-card" key={c.id}>
+                <div className="pt-top">
+                  <span className={`pt-avatar a${(i % 3) + 1}`} aria-hidden="true">{c.patient[0]}</span>
+                  <span className="pt-badge">{c.checksFailed === 0 ? `Verified · ${c.checksPassed} checks passed` : "Under review"}</span>
+                </div>
+                <h3>{c.title}</h3>
+                <p className="pt-meta">{c.patient.replace(/\.$/, "")}{c.age !== null ? `, ${c.age}` : ""} · {c.procedure} · {c.hospital}, {c.city}</p>
+                <div className="pt-bar" aria-hidden="true"><span style={{ width: `${pct}%` }} /></div>
+                <p className="pt-goal">{Number(c.held) > 0 ? <><b>{money(c.held)}</b> held of <b>{money(c.goal)}</b> · {c.donors} {c.donors === 1 ? "donor" : "donors"}</> : <><b>{money(c.goal)}</b> verified goal · be the first to give</>}</p>
+                <Link href={`/c/${c.id}?role=donor`} className="btn warm">Give to {c.patient.split(" ")[0]}</Link>
+              </article>
+            );
+          })}
+          {families.length === 0 && (
+            <article className="pt-card pt-start">
+              <h3>Verifying today&apos;s families…</h3>
+              <p className="pt-meta">Earmark is reading their hospital documents. Refresh in a minute, or try the full journey with Maya.</p>
+              <DemoButton scenario="honest" label="Follow Maya's campaign" className="btn soft" />
+            </article>
+          )}
+        </div>
+        <div className="pt-more">
+          <span>Want the whole journey, from pledge to paid hospital bill, in two minutes?</span>
+          <DemoButton scenario="honest" label="Run Maya's demo campaign" className="btn soft" />
+          <Link href="/start" className="btn ghost">Start a campaign</Link>
         </div>
       </section>
     </div>
@@ -87,6 +94,26 @@ export default function Home() {
     </section>
 
     <PledgeStory />
+
+    <section className="agent-band" aria-labelledby="ab-h">
+      <div className="wrap ab-grid">
+        <div>
+          <p className="ab-kicker">New · Agentic giving</p>
+          <h2 id="ab-h">Let an agent give for you. It can promise money, never spend it.</h2>
+          <p className="ab-lede">Set a cause and two limits, and approve once in PayPal. Your Giving Agent, built on Gemini, finds verified patients, reads the hospital&apos;s evidence and places PayPal holds for you. Your limits are enforced by code, not by asking the AI, and every hold can only ever pay a bill the hospital confirms.</p>
+          <div className="hx-cta"><Link href="/agent" className="btn warm lg">Meet your Giving Agent</Link></div>
+          <p className="ab-mcp">Use Claude or ChatGPT? Add <code>/api/mcp</code> as a connector and give from inside the chat.</p>
+        </div>
+        <ol className="ab-demo" aria-label="What the agent does">
+          <li className="me">Give $40 to a child who needs surgery</li>
+          <li><span className="d t" />Checked your mandate: $100 left, $40 per gift</li>
+          <li><span className="d t" />Searched verified campaigns</li>
+          <li><span className="d t" />Read the hospital evidence: 9 checks passed, none failed</li>
+          <li className="ab-gift"><span className="d y" /><span><b>$40.00 held for Lucia G.</b><small>Ear tubes at Riverside Children&apos;s · PayPal hold, nothing charged</small></span></li>
+          <li className="no"><span className="d n" />Blocked by your mandate: $60 is more than your $40 per gift</li>
+        </ol>
+      </div>
+    </section>
 
     <div className="wrap">
       <section className="duo" aria-labelledby="built">

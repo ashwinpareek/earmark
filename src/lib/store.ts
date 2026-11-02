@@ -246,3 +246,16 @@ export async function updateMandate<T>(id: string, fn: (m: Mandate) => T): Promi
 export async function saveMandate(m: Mandate) {
   return tx((db) => { db.mandates ??= {}; db.mandates[m.id] = m; });
 }
+
+/** Remove duplicate catalog campaigns nobody has given to (keeps the oldest of each). */
+export async function removeUngivenCampaigns(ids: string[]) {
+  return tx((db) => {
+    let n = 0;
+    for (const id of ids) {
+      const c = db.campaigns[id];
+      if (c && c.donations.length === 0) { delete db.campaigns[id]; n++; }
+    }
+    db.fingerprints = db.fingerprints.filter((f) => db.campaigns[f.campaignId]);
+    return n;
+  });
+}

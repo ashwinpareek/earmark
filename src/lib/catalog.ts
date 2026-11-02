@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { Campaign } from "./types";
 import { createCampaign } from "./workflow";
-import { listCampaigns } from "./store";
+import { listCampaigns, removeUngivenCampaigns } from "./store";
 import { toCents } from "./util";
 import { provider } from "./providers";
 
@@ -39,9 +39,24 @@ const FAMILIES = [
 
 const samples = path.join(process.cwd(), "public", "samples");
 
-/** Create any catalog campaign that doesn't exist yet. Safe to call repeatedly. */
-export async function ensureCatalog(): Promise<void> {
+type G = typeof globalThis & { __earmarkCatalog?: Promise<void> };
+
+/** Create any catalog campaign that doesn't exist yet. Safe to call repeatedly and concurrently:
+ *  one creation runs at a time, and duplicates from an earlier race are cleaned up. */
+export function ensureCatalog(): Promise<void> {
+  const g = globalThis as G;
+  g.__earmarkCatalog ??= buildCatalog().finally(() => { g.__earmarkCatalog = undefined; });
+  return g.__earmarkCatalog;
+}
+
+async function buildCatalog(): Promise<void> {
   const existing = await listCampaigns([CATALOG_SPACE]);
+  const extra: string[] = [];
+  for (const f of FAMILIES) {
+    const same = existing.filter((c) => c.docs.some((d) => d.filename === `${f.slug}-estimate.png`)).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    extra.push(...same.slice(1).map((c) => c.id));
+  }
+  if (extra.length) await removeUngivenCampaigns(extra);
   for (const f of FAMILIES) {
     if (existing.some((c) => c.docs.some((d) => d.filename === `${f.slug}-estimate.png`))) continue;
     await createCampaign({
