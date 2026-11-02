@@ -1017,3 +1017,14 @@ main h2:not(.sec-head h2):not(.band h2):not(.story-head h2):not(.agent-band h2) 
 .ab-demo li.no { color: #ffb4ab; }
 @media (max-width: 900px) { .ab-grid { grid-template-columns: 1fr; gap: 36px; } }
 .pt-avatar.a3 { background: linear-gradient(135deg, #22c39b, #4fd6c0); color: #fff; font-family: var(--serif); }
+
+/* sandbox login for judges, next to every PayPal button */
+.judge-login { border: 1px dashed color-mix(in srgb, var(--held) 40%, transparent); background: var(--held-bg); border-radius: 14px; padding: 10px 14px; font-size: 14px; color: var(--ink-2); }
+.judge-login summary { cursor: pointer; font-weight: 700; color: var(--held); }
+.judge-login p { margin: 8px 0; }
+.judge-login dl { margin: 0; display: grid; gap: 6px; }
+.judge-login dl > div { display: grid; grid-template-columns: 72px 1fr; align-items: center; gap: 8px; }
+.judge-login dt { color: var(--muted); }
+.judge-login dd { margin: 0; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.judge-login code { background: var(--surface); padding: 3px 8px; border-radius: 8px; overflow-wrap: anywhere; font-size: 13px; }
+.judge-login button { border: 1px solid var(--rule); background: var(--surface); border-radius: 999px; padding: 3px 10px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; color: var(--ink); }

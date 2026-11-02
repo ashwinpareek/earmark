@@ -45,5 +45,9 @@ services:
         value: gemini-3.5-flash
       - key: GEMINI_API_KEY
         sync: false
+      - key: JUDGE_BUYER_EMAIL
+        sync: false
+      - key: JUDGE_BUYER_PASSWORD
+        sync: false
 # Optional, add in the dashboard: PAYPAL_WEBHOOK_ID (signed webhooks), PHARMACY_PAYPAL_EMAIL,
 # AG_STUDIO_LICENSE (removes the ledger watermark), ANTHROPIC_API_KEY or OPENAI_API_KEY.

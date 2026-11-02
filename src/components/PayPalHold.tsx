@@ -106,9 +106,29 @@ export default function PayPalHold(props: {
   }
   return (
     <div style={{ display: "grid", gap: 8 }}>
+      <JudgeLogin />
       <div ref={box} aria-busy={busy} />
       {busy && <span className="thinking"><span className="spinner" /> Placing the hold on PayPal…</span>}
       {err && <div className="error" role="alert">{err}</div>}
     </div>
+  );
+}
+
+/** On the sandbox only: the test buyer judges can log in with in PayPal's window. */
+function JudgeLogin() {
+  const [l, setL] = useState<{ email: string; password: string } | null>(null);
+  const [copied, setCopied] = useState("");
+  useEffect(() => { fetch("/api/status").then((r) => r.json()).then((s) => setL(s.judgeLogin ?? null)).catch(() => undefined); }, []);
+  if (!l) return null;
+  const copy = async (k: "email" | "password") => { try { await navigator.clipboard.writeText(l[k]); setCopied(k); setTimeout(() => setCopied(""), 1500); } catch { /* clipboard blocked */ } };
+  return (
+    <details className="judge-login">
+      <summary>Testing? Use the sandbox PayPal login</summary>
+      <p>This is PayPal&apos;s <b>sandbox</b>: a test account with test money. Nothing real is charged.</p>
+      <dl>
+        <div><dt>Email</dt><dd><code>{l.email}</code><button type="button" onClick={() => copy("email")}>{copied === "email" ? "Copied" : "Copy"}</button></dd></div>
+        <div><dt>Password</dt><dd><code>{l.password}</code><button type="button" onClick={() => copy("password")}>{copied === "password" ? "Copied" : "Copy"}</button></dd></div>
+      </dl>
+    </details>
   );
 }
