@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import "@fontsource-variable/archivo/wdth.css";
+import "@fontsource-variable/manrope/index.css";
+import "@fontsource-variable/fraunces/full.css";
 import "./globals.css";
 import Logo from "@/components/Logo";
 import Splash from "@/components/Splash";

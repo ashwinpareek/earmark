@@ -9,33 +9,80 @@ import Logo, { MARK } from "@/components/Logo";
 export default function Home() {
   return (
     <>
-    <div className="wrap">
-      <section className="hero">
-        <div>
-          <p className="eyebrow">Medical fundraising on PayPal</p>
-          <h1>
-            The best a scammer can do is pay a stranger&apos;s
-            {" "}<span className="glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z" /></svg></span>{" "}
-            hospital bill.
+    <section className="hx" aria-labelledby="hx-h">
+      <div className="aurora" aria-hidden="true"><i /><i /><i /><i /></div>
+      <div className="wrap hx-grid">
+        <div className="hx-copy">
+          <p className="hx-kicker"><span className="pulse" aria-hidden="true" />Verified medical fundraising on PayPal</p>
+          <h1 id="hx-h" className="reveal-lines">
+            <span><span>Give to the hospital bill,</span></span>
+            <span><span>not to a promise.</span></span>
           </h1>
-          <p className="lede">
-            Every donation is a PayPal hold, not a charge. It can only be collected for a bill the hospital itself confirms, and only paid to the
-            hospital. Forge the paperwork and you get caught.
+          <p className="hx-lede">
+            Your gift is held safely by PayPal and released only to a hospital bill that has been checked and confirmed. Forged bills get caught,
+            and anything the bill doesn&apos;t need is never charged.
           </p>
-          <div className="row">
-            <Link href="/lab" className="btn danger-solid lg">Try to forge a bill</Link>
-            <DemoButton scenario="honest" label="See a real campaign" className="btn ghost lg" />
+          <div className="hx-cta">
+            <DemoButton scenario="honest" label="Help a verified patient" className="btn warm lg" />
+            <Link href="/lab" className="btn glass lg">Try to forge a bill</Link>
           </div>
-          <LabScore />
+          <ul className="hx-trust" aria-label="How your gift is protected">
+            <li><b>Held</b> by PayPal, not charged</li>
+            <li><b>Read</b> by Gemini, checked by rules</li>
+            <li><b>$0</b> kept by Earmark</li>
+          </ul>
         </div>
-        <HeroReceipt />
+        <div className="hx-card-wrap">
+          <HeroReceipt />
+        </div>
+      </div>
+    </section>
+
+    <div className="wrap">
+      <section className="patients" aria-labelledby="pt-h">
+        <div className="sec-head">
+          <h2 id="pt-h">Families you can help today</h2>
+          <p>Every campaign starts with the hospital&apos;s own documents, checked before anyone can give. <span className="muted">Demo patients are fictional.</span></p>
+        </div>
+        <div className="pt-grid">
+          <article className="pt-card">
+            <div className="pt-top">
+              <span className="pt-avatar a1" aria-hidden="true">M</span>
+              <span className="pt-badge">Verified · 10 of 10 checks</span>
+            </div>
+            <h3>Help Maya recover from emergency surgery</h3>
+            <p className="pt-meta">Maya, 9 · Appendectomy · Riverside Children&apos;s Hospital, Austin</p>
+            <div className="pt-bar" aria-hidden="true"><span style={{ width: "0%" }} /></div>
+            <p className="pt-goal"><b>$2,400</b> verified goal · be the first to give</p>
+            <DemoButton scenario="honest" label="Give to Maya" className="btn warm" />
+          </article>
+          <article className="pt-card">
+            <div className="pt-top">
+              <span className="pt-avatar a2" aria-hidden="true">A</span>
+              <span className="pt-badge">Verified · hospital confirmed</span>
+            </div>
+            <h3>Help Aarav breathe and sleep again</h3>
+            <p className="pt-meta">Aarav · Tonsil and adenoid surgery · Riverside Children&apos;s Hospital</p>
+            <div className="pt-bar" aria-hidden="true"><span style={{ width: "67%" }} /></div>
+            <p className="pt-goal"><b>$1,200</b> held of <b>$1,800</b> · 3 donors</p>
+            <Link href="/campaigns" className="btn soft">See Aarav&apos;s campaign</Link>
+          </article>
+          <article className="pt-card pt-start">
+            <span className="pt-avatar a3" aria-hidden="true">+</span>
+            <h3>Raising money for someone&apos;s care?</h3>
+            <p className="pt-meta">Upload the hospital&apos;s estimate. Earmark checks it in seconds, and donations go straight to the hospital, so nobody can question where they went.</p>
+            <Link href="/start" className="btn soft">Start a campaign</Link>
+          </article>
+        </div>
       </section>
     </div>
 
-    <section className="statement grain" aria-label="The promise">
+    <section className="statement" aria-label="The promise">
+      <div className="mesh" aria-hidden="true" />
       <div className="wrap">
-        <p className="statement-big">On Earmark, a donation can only ever pay the hospital.</p>
-        <p className="statement-sub">Not the family. Not a forger. Not us.</p>
+        <p className="statement-big">Kindness shouldn&apos;t need trust.</p>
+        <p className="statement-sub">On Earmark, a donation can only ever pay the hospital. Not the family, not a forger, not us.</p>
+        <LabScore />
       </div>
     </section>
 
