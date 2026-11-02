@@ -1,10 +1,11 @@
 import Link from "next/link";
-import HeroReceipt from "@/components/HeroReceipt";
+import HeroBeam from "@/components/HeroBeam";
 import DemoButton from "@/components/DemoButtons";
 import ResetDemo from "@/components/ResetDemo";
 import LabScore from "@/components/LabScore";
 import PledgeStory from "@/components/PledgeStory";
-import GatesScene from "@/components/GatesScene";
+import AgentReel from "@/components/AgentReel";
+import DocTunnel from "@/components/DocTunnel";
 import ScanScene from "@/components/ScanScene";
 import { catalog } from "@/lib/catalog";
 import Logo, { MARK } from "@/components/Logo";
@@ -17,34 +18,25 @@ export default async function Home() {
   const families = await catalog().catch(() => []);
   return (
     <>
-    <section className="hx" aria-labelledby="hx-h">
+    <section className="hx hx-center" aria-labelledby="hx-h">
       <div className="aurora" aria-hidden="true"><i /><i /><i /><i /></div>
-      <div className="wrap hx-grid">
-        <div className="hx-copy">
-          <p className="hx-kicker"><span className="pulse" aria-hidden="true" />Verified medical fundraising on PayPal</p>
-          <h1 id="hx-h" className="reveal-lines">
-            <span><span>Give to the hospital bill,</span></span>
-            <span><span>not to a promise.</span></span>
-          </h1>
-          <p className="hx-lede">
-            Your gift is held safely by PayPal and released only to a hospital bill that has been checked and confirmed. Forged bills get caught,
-            and anything the bill doesn&apos;t need is never charged.
-          </p>
-          <div className="hx-cta">
-            <a href="#families" className="btn warm lg">Help a verified patient</a>
-            <Link href="/agent" className="btn glass lg">Meet your Giving Agent</Link>
-          </div>
-          <p className="hx-alt">Or <Link href="/lab">try to forge a bill</Link> and watch Earmark catch it.</p>
-          <ul className="hx-trust" aria-label="How your gift is protected">
-            <li><b>Held</b> by PayPal, not charged</li>
-            <li><b>Read</b> by Gemini, checked by rules</li>
-            <li><b>$0</b> kept by Earmark</li>
-          </ul>
+      <div className="wrap hx-copy">
+        <p className="hx-kicker"><span className="pulse" aria-hidden="true" />Verified medical fundraising on PayPal</p>
+        <h1 id="hx-h" className="reveal-lines">
+          <span><span>Give to the hospital bill,</span></span>
+          <span><span>not to a promise.</span></span>
+        </h1>
+        <p className="hx-lede">
+          Gemini reads every hospital document. Plain rules check every claim. PayPal holds every gift and pays only the bill the hospital
+          confirms. Forgeries go nowhere; what the bill doesn&apos;t need is never charged.
+        </p>
+        <div className="hx-cta">
+          <a href="#families" className="btn warm lg">Help a verified patient</a>
+          <Link href="/agent" className="btn glass lg">Meet your Giving Agent</Link>
         </div>
-        <div className="hx-card-wrap">
-          <HeroReceipt />
-        </div>
+        <p className="hx-alt">Or <Link href="/lab">try to forge a bill</Link> and watch Earmark catch it.</p>
       </div>
+      <HeroBeam />
     </section>
 
     <div className="wrap">
@@ -95,6 +87,8 @@ export default async function Home() {
       </div>
     </section>
 
+    <DocTunnel />
+
     <PledgeStory />
 
     <section className="agent-band" aria-labelledby="ab-h">
@@ -106,14 +100,7 @@ export default async function Home() {
           <div className="hx-cta"><Link href="/agent" className="btn warm lg">Meet your Giving Agent</Link></div>
           <p className="ab-mcp">Use Claude or ChatGPT? Add <code>/api/mcp</code> as a connector and give from inside the chat.</p>
         </div>
-        <ol className="ab-demo" aria-label="What the agent does">
-          <li className="me">Give $40 to a child who needs surgery</li>
-          <li><span className="d t" />Checked your mandate: $100 left, $40 per gift</li>
-          <li><span className="d t" />Searched verified campaigns</li>
-          <li><span className="d t" />Read the hospital evidence: 9 checks passed, none failed</li>
-          <li className="ab-gift"><span className="d y" /><span><b>$40.00 held for Lucia G.</b><small>Ear tubes at Riverside Children&apos;s · PayPal hold, nothing charged</small></span></li>
-          <li className="no"><span className="d n" />Blocked by your mandate: $60 is more than your $40 per gift</li>
-        </ol>
+        <AgentReel />
       </div>
     </section>
 
@@ -148,13 +135,6 @@ export default async function Home() {
         reach the verified bill.
       </p>
 
-      <section className="band wide" aria-labelledby="layers">
-        <div>
-          <h2 id="layers">Why a scam can&apos;t cash out</h2>
-          <p className="intro">Three independent gates. A forger has to beat all three, and the third can&apos;t be beaten. Watch a real bill and a forged one try.</p>
-        </div>
-        <GatesScene />
-      </section>
 
       <section className="band wide" aria-labelledby="checks">
         <div>
