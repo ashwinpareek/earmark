@@ -218,6 +218,8 @@ The public ledger (`/ledger`) is an AG Studio report with two pages (Money, Inte
 
 ### Hosted demo for judges
 
+- **PayPal login for testing:** next to every PayPal button, "Testing? Use the sandbox PayPal login" shows a PayPal **sandbox** test buyer (fake account, fake money). The credentials are set on the server (`JUDGE_BUYER_EMAIL`, `JUDGE_BUYER_PASSWORD`) and never committed. They're also in the Devpost testing instructions.
+
 - **URL:** https://earmark-v1ov.onrender.com (Render free plan, Postgres, PayPal sandbox, Gemini 3.5 Flash). A GitHub Actions job pings it every 10 minutes so it stays awake.
 
 - **Private demo spaces:** every visitor gets their own (a cookie). Demo campaigns, reuse detection, lists and the radar are scoped to it, so judges never see each other's runs or a finished campaign. **Reset my demo** (home page and radar) starts over.

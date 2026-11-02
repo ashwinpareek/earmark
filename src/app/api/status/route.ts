@@ -9,5 +9,10 @@ export async function GET() {
     webhookVerification: Boolean(process.env.PAYPAL_WEBHOOK_ID),
     ai: aiProvider(),
     model: aiModelName(),
+    // A PayPal SANDBOX test buyer for judges (fake account, fake money). Set on the server, never
+    // committed; only ever shown when the app runs against the sandbox.
+    judgeLogin: paypalMode() === "sandbox" && process.env.JUDGE_BUYER_EMAIL && process.env.JUDGE_BUYER_PASSWORD
+      ? { email: process.env.JUDGE_BUYER_EMAIL, password: process.env.JUDGE_BUYER_PASSWORD }
+      : null,
   });
 }
