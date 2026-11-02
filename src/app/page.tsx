@@ -4,6 +4,8 @@ import DemoButton from "@/components/DemoButtons";
 import ResetDemo from "@/components/ResetDemo";
 import LabScore from "@/components/LabScore";
 import PledgeStory from "@/components/PledgeStory";
+import GatesScene from "@/components/GatesScene";
+import ScanScene from "@/components/ScanScene";
 import { catalog } from "@/lib/catalog";
 import Logo, { MARK } from "@/components/Logo";
 
@@ -146,44 +148,20 @@ export default async function Home() {
         reach the verified bill.
       </p>
 
-      <section className="band" aria-labelledby="layers">
+      <section className="band wide" aria-labelledby="layers">
         <div>
           <h2 id="layers">Why a scam can&apos;t cash out</h2>
-          <p className="intro">Three independent layers. A forger has to beat all three, and the third can&apos;t be beaten.</p>
+          <p className="intro">Three independent gates. A forger has to beat all three, and the third can&apos;t be beaten. Watch a real bill and a forged one try.</p>
         </div>
-        <ol className="layers">
-          <li>
-            <span className="layer-n">1</span>
-            <div><strong>The documents are investigated</strong><p>An AI transcribes every page; deterministic rules check it: registry details, arithmetic to the cent, one patient everywhere, every document Earmark has ever seen (even cropped, re-saved copies), and hidden text aimed at the AI. Reviewers see a box over every forged value.</p></div>
-          </li>
-          <li>
-            <span className="layer-n">2</span>
-            <div><strong>The hospital is asked directly</strong><p>Earmark contacts the billing office through its own registry, never the phone number printed on the document, and asks: did you issue this estimate, for this patient, for this amount?</p></div>
-          </li>
-          <li>
-            <span className="layer-n">3</span>
-            <div><strong>The money only pays the verified hospital</strong><p>Pledges are PayPal authorizations. They&apos;re captured only for a bill the hospital submits, split fairly across donors, and Earmark&apos;s settlement pays only the hospital&apos;s registry-verified PayPal account. The family receives $0; so does a forger who got this far.</p></div>
-          </li>
-        </ol>
+        <GatesScene />
       </section>
 
-      <section className="band" aria-labelledby="checks">
+      <section className="band wide" aria-labelledby="checks">
         <div>
           <h2 id="checks">What Earmark checks</h2>
-          <p className="intro">An AI reads the documents. Plain rules decide, and every result shows its evidence.</p>
+          <p className="intro">Gemini reads the page. Plain rules decide, and every result points at its evidence. Watch the same scan catch a forged copy.</p>
         </div>
-        <div className="checklist">
-          <div><b>The provider is verified</b><span>Hospital, clinic or pharmacy: name, phone and licence must match the registry.</span></div>
-          <div><b>The totals add up</b><span>Line items must explain the printed total, to the cent.</span></div>
-          <div><b>One patient, everywhere</b><span>Name and age agree across the estimate, registration card and bill.</span></div>
-          <div><b>Nothing is reused</b><span>A file or document number seen in another campaign puts it on hold.</span></div>
-          <div><b>No signs of editing</b><span>Numbers in a different font, pasted regions, overwritten totals.</span></div>
-          <div><b>No hidden instructions</b><span>A document that tells the AI to approve it is treated as fraud.</span></div>
-          <div><b>Confirmed by the hospital</b><span>The billing office confirms the document number, the patient and the amount.</span></div>
-          <div><b>No re-saved copies</b><span>A visual fingerprint recognises a page even after cropping and re-saving.</span></div>
-          <div><b>The bill matches the estimate</b><span>Growth beyond 15% of the verified estimate needs a human reviewer.</span></div>
-          <div><b>Only medical care is paid</b><span>Each bill line is classified; non-medical extras are excluded.</span></div>
-        </div>
+        <ScanScene />
       </section>
 
       <section className="band" aria-labelledby="fair">
