@@ -7,6 +7,7 @@ import Logo from "@/components/Logo";
 import Splash from "@/components/Splash";
 import MobileDock from "@/components/MobileDock";
 import SmoothScroll from "@/components/SmoothScroll";
+import Motion from "@/components/Motion";
 import { paypalMode } from "@/lib/paypal";
 import { aiProvider, aiModelName } from "@/lib/ai";
 
@@ -71,6 +72,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </footer>
         <MobileDock />
         <SmoothScroll />
+        <Motion />
       </body>
     </html>
   );
