@@ -1210,8 +1210,11 @@ main h2:not(.sec-head h2):not(.band h2):not(.story-head h2):not(.agent-band h2) 
 .dt-sticky { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; }
 .dt-canvas { position: absolute; inset: 0; z-index: 0; }
 .dt-grid, .dt-ui { z-index: 2; }
-.dt-paid { position: absolute; left: 50%; top: 50%; z-index: 2; transform: translate(-50%, 70px); text-align: center; pointer-events: none; opacity: 0; transition: opacity .8s var(--ease), transform .8s var(--ease); }
-.dt-paid.on { opacity: 1; transform: translate(-50%, 92px); }
+.dt-paid { position: absolute; left: 50%; top: 50%; z-index: 2; width: min(560px, 90vw); transform: translate(-50%, 150px); text-align: center; pointer-events: none; opacity: 0; transition: opacity .8s var(--ease), transform .8s var(--ease); }
+.dt-paid.on { opacity: 1; transform: translate(-50%, 170px); }
+.dt-paid b .num { display: inline; margin: 0; font-size: inherit; color: inherit; font-variant-numeric: tabular-nums; }
+.dt-paid.warm b { background: linear-gradient(90deg, #fff, #ffd2bf 60%, #fff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+@media (max-width: 900px) { .dt-paid { display: none; } }
 .dt-paid b { display: block; font-family: var(--serif); font-weight: 500; font-size: clamp(28px, 3vw, 40px); letter-spacing: -0.02em; color: #fff; }
 .dt-paid span { display: block; margin-top: 6px; font-size: 14px; color: #c9cde8; }
 .dt-canvas canvas { width: 100% !important; height: 100% !important; display: block; }
@@ -1291,3 +1294,14 @@ html.lenis, html.lenis body { height: auto; }
 @keyframes ar-pulse { 50% { transform: scale(1.5); opacity: .6; } }
 @keyframes ar-in { from { opacity: 0; transform: translateY(8px); filter: blur(4px); } }
 @media (prefers-reduced-motion: reduce) { .ar-pillars i::after, .ar-input.busy::before, .ar-shimmer { animation: none; } }
+
+/* ══ Page motion (Motion.tsx) ═══════════════════════════════════════════════ */
+.mw { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: .08em; margin-bottom: -.08em; }
+.mw > span { display: inline-block; will-change: transform; }
+.btn { translate: var(--tx, 0) var(--ty, 0); transition: translate .5s cubic-bezier(.2,.8,.2,1), background .2s, box-shadow .2s, transform .2s; }
+.spot { position: relative; isolation: isolate; transform: perspective(1000px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform .6s cubic-bezier(.2,.8,.2,1), box-shadow .4s; }
+.spot::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity .4s; background: radial-gradient(380px circle at var(--mx, 50%) var(--my, 50%), rgba(255, 138, 110, .13), transparent 60%); }
+.spot::after { content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 1px; pointer-events: none; opacity: 0; transition: opacity .4s; background: radial-gradient(240px circle at var(--mx, 50%) var(--my, 50%), rgba(255, 120, 95, .7), rgba(90, 110, 230, .35) 45%, transparent 70%); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+.spot:hover::before, .spot:hover::after { opacity: 1; }
+.spot:hover { box-shadow: 0 30px 60px -30px rgba(18, 22, 53, .35); }
+@media (min-width: 901px) { .band > div:first-child { position: sticky; top: 104px; align-self: start; } }
