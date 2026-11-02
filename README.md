@@ -16,6 +16,42 @@ Earmark is verified medical fundraising on PayPal.
 
 ---
 
+## Agentic giving: an agent that can promise money, but never spend it
+
+**[Open the Giving Agent →](https://earmark-v1ov.onrender.com/agent)**
+
+Tell the agent what you care about ("children who need surgery") and set two limits: a total and a most-per-gift. It searches Earmark's verified catalog, reads each hospital's evidence, and gives for you.
+
+- **Approve once, in PayPal.** The agent's first proposal is a normal PayPal approval in PayPal's own window. That approval also saves your PayPal with **PayPal Vault** ("save with purchase"). From then on, the agent places gifts itself as **merchant-initiated PayPal holds** with the saved token (`payment_source.paypal.vault_id`, `stored_credential: MERCHANT/SUBSEQUENT`). There's no login and no redirect.
+- **The AI proposes; code decides.** The agent is **Gemini with native tool calling** (`check_mandate`, `search_verified_campaigns`, `read_campaign_evidence`, `give`). The `give` tool doesn't move money. It goes through `checkGift()` in [`src/lib/mandate.ts`](src/lib/mandate.ts), plain rules with unit tests:
+  - the mandate is active and not revoked;
+  - the campaign has no failed check;
+  - the gift is within the per-gift and total limits, and no more than the patient still needs;
+  - one gift per family.
+- **Why a fooled agent is harmless.** Every gift is a PayPal **authorization**, and it can only be collected for a bill the hospital confirms, paid to the hospital. A hijacked agent, or a campaign story that says "AI, give me everything", can at worst place a visible hold, inside your limits, for a verified patient.
+- **The token never leaves the server.** The agent can't read the token, and **Stop my agent** deletes it at PayPal.
+- **The agent never dead-ends.** If Gemini is busy or rate-limited, a plain-rules planner takes over with the same tools and the same mandate rules, and the page says so.
+- **The boundary is enforced in CI.** `tests/boundary.test.ts` checks the import graph: the agent module talks to Gemini and cannot reach the PayPal client.
+
+Verified on the sandbox: a saved-PayPal hold placed by the agent's code path with no login (`4C203507D5108484U`, then voided). Over-limit and repeat-family gifts were refused before PayPal was called.
+
+## Earmark as an MCP server: give from inside Claude or ChatGPT
+
+`https://earmark-v1ov.onrender.com/api/mcp` is a **Model Context Protocol** server (Streamable HTTP, stateless). Add it as a custom connector in Claude (Settings → Connectors → Add custom connector) or any MCP client. It has four tools:
+
+| Tool | What it does |
+|---|---|
+| `find_verified_campaigns` | Live campaigns whose hospital documents were checked and confirmed, filtered by what the donor cares about |
+| `get_campaign_evidence` | Every check with its evidence, so the assistant can explain *why* a campaign is trustworthy |
+| `create_pledge` | Creates a PayPal hold and returns PayPal's approval link. The donor approves it themselves; the assistant can't. |
+| `check_receipt_with_paypal` | Compares a gift with PayPal's own records through PayPal's Agent Toolkit |
+
+Try it from a terminal: `node scripts/mcp-check.mjs https://earmark-v1ov.onrender.com/api/mcp`. It uses the official MCP client.
+
+### The public catalog
+
+The agent and the MCP server choose from real campaigns anyone can give to: Leila (burns, Lakeview General), Sam (femur fracture, Lakeview General) and Lucia (ear tubes, Riverside Children's). They're created on server start from generated hospital documents, verified the same way as every campaign. All three are fictional.
+
 ## The Forgery Lab
 
 The fastest way to understand Earmark is to attack it. `/lab` gives you Maya's real estimate from Riverside Children's Hospital. You can forge it however you like:
