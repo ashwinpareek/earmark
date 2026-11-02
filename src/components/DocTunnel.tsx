@@ -18,6 +18,13 @@ const CHAPTERS = [
   { n: "04", k: "Pay", h: "Only the hospital is ever paid.", p: "When the hospital confirms the final bill, PayPal captures each donor's fair share, pays the hospital through Payouts, and releases the rest.", tags: ["Partial capture", "Payouts", "Void the rest", "Agent Toolkit check", "$0 to families"], ask: "Show me where my $40 went" },
 ];
 
+// a hospital monitor trace, one beat every 300 units
+const ECG = (() => {
+  let d = "M0 60";
+  for (let x = 0; x < 2400; x += 300) d += ` H${x + 120} l12 -8 l12 8 h14 l8 -46 l12 82 l9 -46 h18 l14 -12 l14 12 H${x + 300}`;
+  return d;
+})();
+
 export default function DocTunnel() {
   const section = useRef<HTMLDivElement>(null);
   const canvasBox = useRef<HTMLDivElement>(null);
@@ -113,6 +120,7 @@ export default function DocTunnel() {
           if (rnd(k) < 0.28) continue;
           const name = TILES[k % TILES.length];
           const mat = new THREE.MeshBasicMaterial({ map: tex[k % TILES.length], transparent: true, opacity: 0.96, side: THREE.DoubleSide, fog: true });
+          mat.userData.base = mat.map;
           const fmat = new THREE.MeshBasicMaterial({ color: 0x6d76b8, transparent: true, opacity: 0.18, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false });
           const mesh = new THREE.Mesh(geo, mat);
           const frame = new THREE.Mesh(frameGeo, fmat);
@@ -130,8 +138,26 @@ export default function DocTunnel() {
       // chapter 4: they spiral into it. The rest of the tunnel dims but stays, so the space never empties.
       const verified = tiles.filter((t) => !t.forged).sort((a, b) => a.seed - b.seed);
       const ring = verified.slice(0, 21);
+      // each one turns over into the PayPal hold it becomes (drawn mirrored: we see its back face)
+      const WHO = ["Maya R.", "Lucia G.", "Sam O.", "Leila H.", "Aarav S."];
+      const AMT = ["$40.00", "$25.00", "$60.00", "$35.00", "$100.00", "$50.00", "$20.00"];
+      const holdTex = ring.map((_, i) => {
+        const c = document.createElement("canvas"); c.width = 256; c.height = 362;
+        const g = c.getContext("2d")!;
+        g.translate(256, 0); g.scale(-1, 1);
+        g.fillStyle = "#ffffff"; g.fillRect(0, 0, 256, 362);
+        g.fillStyle = "#121635"; g.fillRect(0, 0, 256, 74);
+        g.fillStyle = "#ffffff"; g.font = "700 22px Manrope, system-ui, sans-serif"; g.fillText("PayPal hold", 22, 46);
+        g.strokeStyle = "#ffb08a"; g.lineWidth = 3; g.strokeRect(205, 26, 26, 22); g.beginPath(); g.arc(218, 26, 8, Math.PI, 0); g.stroke();
+        g.fillStyle = "#121635"; g.font = "800 46px Manrope, system-ui, sans-serif"; g.fillText(AMT[i % AMT.length], 22, 150);
+        g.fillStyle = "#0d9a7a"; g.font = "700 17px Manrope, system-ui, sans-serif"; g.fillText("Authorized, not charged", 22, 186);
+        g.fillStyle = "#5a5f85"; g.font = "500 17px Manrope, system-ui, sans-serif"; g.fillText(`for ${WHO[i % WHO.length]}`, 22, 222);
+        g.fillStyle = "#e8eaf6"; g.fillRect(22, 262, 212, 1.5);
+        g.fillStyle = "#5a5f85"; g.font = "500 14px Manrope, system-ui, sans-serif"; g.fillText("Pays only the verified", 22, 296); g.fillText("hospital bill", 22, 316);
+        const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+      });
       const holders = new Set(ring);
-      let ringR = 4.4, ringD = 14;
+      let ringR = 4.9, ringD = 14, hospScale = 1;
 
       // the hospital: a shader light (no textures, so no banding or fog tint)
       const sunMat = new THREE.ShaderMaterial({
@@ -143,13 +169,11 @@ export default function DocTunnel() {
           float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
           void main(){
             vec2 p = vUv - 0.5; float r = length(p) * 2.0; float a = atan(p.y, p.x);
-            float core = exp(-r * r * 90.0);
-            float halo = exp(-r * 5.5) * 0.5 + exp(-r * 14.0) * 0.6;
-            float rays = pow(0.5 + 0.5 * sin(a * 9.0 + uTime * 0.35), 8.0) * exp(-r * 3.4) * 0.32
-                       + pow(0.5 + 0.5 * sin(a * 5.0 - uTime * 0.22), 10.0) * exp(-r * 2.6) * 0.22;
-            float ring = smoothstep(0.012, 0.0, abs(r - 0.38)) * 0.35;
-            float ph = fract(uTime * 0.45);
-            float pulse = smoothstep(0.025, 0.0, abs(r - ph * 0.9)) * (1.0 - ph) * 0.7 * uWarm;
+            float core = 0.0;
+            float halo = exp(-r * 4.0) * 0.55;
+            float rays = 0.0, ring = 0.0;
+            float ph = fract(uTime * 0.6);
+            float pulse = smoothstep(0.03, 0.0, abs(r - ph * 0.95)) * (1.0 - ph) * 0.5 * uWarm;
             vec3 cool = vec3(0.50, 0.60, 1.0), warm = vec3(1.0, 0.58, 0.42), white = vec3(1.0, 0.96, 0.92);
             vec3 tint = mix(cool, warm, uWarm);
             vec3 col = white * core * 1.6 + tint * (halo + rays + ring + pulse);
@@ -162,36 +186,80 @@ export default function DocTunnel() {
       sun.renderOrder = -1;
       scene.add(sun);
 
+      // the hospital the money is for: a building whose windows light up as each hold is paid
+      const hc = document.createElement("canvas"); hc.width = 640; hc.height = 560;
+      const hg = hc.getContext("2d")!;
+      const hTex = new THREE.CanvasTexture(hc); hTex.colorSpace = THREE.SRGBColorSpace;
+      const WIN = 15;
+      const rr = (x: number, y: number, w: number, h: number, r: number) => { hg.beginPath(); hg.roundRect(x, y, w, h, r); };
+      const drawHosp = (lit: number, warm: boolean) => {
+        hg.clearRect(0, 0, 640, 560);
+        const line = warm ? "rgba(255,196,170,0.95)" : "rgba(170,185,255,0.85)";
+        // body
+        rr(110, 170, 420, 330, 18); hg.fillStyle = "rgba(14,19,58,0.92)"; hg.fill(); hg.lineWidth = 5; hg.strokeStyle = line; hg.stroke();
+        // roof sign with the cross
+        rr(270, 60, 100, 100, 24); hg.fillStyle = warm ? "#ff6b5a" : "#3a5bd9"; hg.fill();
+        hg.fillStyle = "#fff"; hg.fillRect(308, 80, 24, 60); hg.fillRect(290, 98, 60, 24);
+        hg.fillStyle = line; hg.fillRect(316, 160, 8, 12);
+        // windows, 3 floors x 5
+        for (let i = 0; i < WIN; i++) {
+          const col = i % 5, row = Math.floor(i / 5);
+          const x = 146 + col * 74, y = 200 + row * 70;
+          rr(x, y, 48, 40, 7);
+          if (i < lit) { hg.shadowColor = "rgba(255,170,130,0.9)"; hg.shadowBlur = 24; hg.fillStyle = "#ffe1d2"; hg.fill(); hg.shadowBlur = 0; }
+          else { hg.fillStyle = "rgba(255,255,255,0.07)"; hg.fill(); hg.lineWidth = 2; hg.strokeStyle = "rgba(255,255,255,0.18)"; hg.stroke(); }
+        }
+        // door and ground
+        rr(286, 418, 68, 82, 8); hg.fillStyle = lit >= WIN ? "#ffe1d2" : "rgba(255,255,255,0.12)"; hg.fill();
+        hg.fillStyle = line; hg.fillRect(40, 498, 560, 5);
+        hTex.needsUpdate = true;
+      };
+      drawHosp(0, false);
+      let hospState = "";
+      const hosp = new THREE.Mesh(new THREE.PlaneGeometry(4.8, 4.2), new THREE.MeshBasicMaterial({ map: hTex, transparent: true, opacity: 0, depthWrite: false, fog: false }));
+      scene.add(hosp);
+
       // a field of light dust through the whole tunnel; it drifts toward you, then flows into the hospital
-      const PN = window.innerWidth < 700 ? 900 : 2400;
-      const pPos = new Float32Array(PN * 3), pCol = new Float32Array(PN * 3), pSize = new Float32Array(PN);
+      const PN = window.innerWidth < 700 ? 320 : 700;
+      const pPos = new Float32Array(PN * 3), pCol = new Float32Array(PN * 3), pSize = new Float32Array(PN), pShape = new Float32Array(PN);
       const palette = [new THREE.Color(0x9fb0ff), new THREE.Color(0xffffff), new THREE.Color(0xffb08a), new THREE.Color(0x6d8bff)];
       for (let i = 0; i < PN; i++) {
         const ang = rnd(i * 3 + 1) * Math.PI * 2, rad = 0.6 + Math.pow(rnd(i * 3 + 2), 0.6) * 4.2;
         pPos.set([Math.cos(ang) * rad * 1.05, Math.sin(ang) * rad * 0.62, 8 - rnd(i * 3 + 3) * 58], i * 3);
         const c = palette[Math.floor(rnd(i + 99) * (rnd(i + 7) < 0.7 ? 2 : 4))];
         pCol.set([c.r, c.g, c.b], i * 3);
-        pSize[i] = 0.6 + Math.pow(rnd(i + 51), 3) * 2.6;
+        pShape[i] = rnd(i + 23) < 0.55 ? 0 : 1; // 0 = medical cross, 1 = coin
+        pSize[i] = 1.2 + Math.pow(rnd(i + 51), 3) * 2.4;
       }
       const pGeo = new THREE.BufferGeometry();
       pGeo.setAttribute("position", new THREE.BufferAttribute(pPos, 3));
       pGeo.setAttribute("aColor", new THREE.BufferAttribute(pCol, 3));
       pGeo.setAttribute("aSize", new THREE.BufferAttribute(pSize, 1));
+      pGeo.setAttribute("aShape", new THREE.BufferAttribute(pShape, 1));
       const pMat = new THREE.ShaderMaterial({
-        uniforms: { uTravel: { value: 0 }, uCam: { value: 7 }, uPix: { value: Math.min(2, window.devicePixelRatio) }, uFade: { value: 1 } },
+        uniforms: { uWarm: { value: 0 }, uTravel: { value: 0 }, uCam: { value: 7 }, uPix: { value: Math.min(2, window.devicePixelRatio) }, uFade: { value: 1 } },
         transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
         vertexShader: `
-          attribute vec3 aColor; attribute float aSize; uniform float uTravel, uCam, uPix, uFade; varying vec3 vC; varying float vA;
+          attribute vec3 aColor; attribute float aSize; attribute float aShape; uniform float uTravel, uCam, uPix, uFade, uWarm; varying vec3 vC; varying float vA; varying float vS;
           void main(){
             vec3 p = position; p.z = mod(p.z + uTravel - uCam + 50.0, 58.0) + uCam - 50.0;
             vec4 mv = modelViewMatrix * vec4(p, 1.0); float d = -mv.z;
             gl_Position = projectionMatrix * mv;
             gl_PointSize = aSize * uPix * 30.0 / max(d, 0.5);
-            vA = smoothstep(48.0, 18.0, d) * smoothstep(0.4, 2.5, d) * uFade; vC = aColor;
+            vA = smoothstep(48.0, 16.0, d) * smoothstep(0.6, 3.0, d) * uFade; vS = aShape; vC = aShape > 0.5 ? mix(vec3(1.0, 0.72, 0.45), vec3(1.0, 0.62, 0.42), uWarm) : mix(vec3(0.62, 0.70, 1.0), vec3(1.0, 0.85, 0.8), uWarm * 0.5);
           }`,
         fragmentShader: `
-          varying vec3 vC; varying float vA;
-          void main(){ float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0.0, d); gl_FragColor = vec4(vC * a * a * vA * 0.9, 1.0); }`,
+          varying vec3 vC; varying float vA; varying float vS;
+          void main(){
+            vec2 q = gl_PointCoord - 0.5; float a;
+            if (vS < 0.5) { // a plus sign: the medical cross
+              vec2 aq = abs(q); float arm = min(max(aq.x, aq.y), 0.42); float bar = min(aq.x, aq.y);
+              a = smoothstep(0.13, 0.08, bar) * smoothstep(0.42, 0.36, max(aq.x, aq.y));
+            } else { // a coin: a ring with a bright rim
+              float d = length(q); a = smoothstep(0.42, 0.36, d) * (0.45 + 0.55 * smoothstep(0.24, 0.34, d));
+            }
+            gl_FragColor = vec4(vC * a * vA * 0.55, 1.0);
+          }`,
       });
       const dust = new THREE.Points(pGeo, pMat);
       dust.frustumCulled = false;
@@ -202,7 +270,7 @@ export default function DocTunnel() {
       const scanEdge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(W, H)), new THREE.LineBasicMaterial({ color: 0x9fb0ff, transparent: true, opacity: 0 }));
       scene.add(scan, scanEdge);
 
-      const resize = () => { const r = box.getBoundingClientRect(); renderer.setSize(r.width, r.height, false); camera.aspect = r.width / r.height; camera.fov = r.width < 700 ? 72 : 58; camera.updateProjectionMatrix(); ringR = camera.aspect < 1 ? 2.5 : 4.4; ringD = camera.aspect < 1 ? 15 : 14; };
+      const resize = () => { const r = box.getBoundingClientRect(); renderer.setSize(r.width, r.height, false); camera.aspect = r.width / r.height; camera.fov = r.width < 700 ? 72 : 58; camera.updateProjectionMatrix(); ringR = camera.aspect < 1 ? 2.6 : 4.9; hospScale = camera.aspect < 1 ? 0.72 : 1; ringD = camera.aspect < 1 ? 15 : 14; };
       resize();
       window.addEventListener("resize", resize);
 
@@ -210,7 +278,8 @@ export default function DocTunnel() {
       const ease = (v: number) => v * v * (3 - 2 * v);
       const cBlue = new THREE.Color(0x6d8bff), cTeal = new THREE.Color(0x3fd1b0), cRed = new THREE.Color(0xff5a4a), cIdle = new THREE.Color(0x6d76b8), cWarm = new THREE.Color(0xffb08a);
       const tmp = new THREE.Color(), v = new THREE.Vector3(), v2 = new THREE.Vector3(), q = new THREE.Quaternion(), qy = new THREE.Quaternion(), faceCam = new THREE.Quaternion(), yAxis = new THREE.Vector3(0, 1, 0);
-      let travel = 0;
+      let travel = 0, lastHold = "", lastPay = "";
+      const el = section.current!;
       let smooth = 0, visible = true, last = performance.now();
       const t0 = last;
       const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; }, { rootMargin: "200px" });
@@ -238,14 +307,23 @@ export default function DocTunnel() {
         const center = v2.set(0, 0, camera.position.z - ringD);
         sun.position.copy(center);
         sun.quaternion.copy(camera.quaternion);
+        hosp.position.copy(center); hosp.position.y += 0.15; hosp.quaternion.copy(camera.quaternion);
+        (hosp.material as InstanceType<typeof THREE.MeshBasicMaterial>).opacity = ease(clamp(c3 * 1.4 - 0.2));
+        const lit = Math.round(clamp(c4 * 1.15) * WIN), state = `${lit}${c4 > 0.02}`;
+        if (state !== hospState) { drawHosp(lit, c4 > 0.02); hospState = state; }
+        hosp.scale.setScalar(hospScale * (1 + (lit > 0 && lit < WIN ? Math.max(0, Math.sin(time * 9)) * 0.012 : 0)));
         sunMat.uniforms.uTime.value = time;
-        sunMat.uniforms.uI.value = ease(c3) * 0.45 + ease(c4) * 0.75;
+        sunMat.uniforms.uI.value = ease(c3) * 0.35 + ease(c4) * 0.65;
         sunMat.uniforms.uWarm.value = ease(c4);
         // dust drifts toward you, speeds up with scrolling, then reverses and flows into the hospital
         const vel = Math.min(6, Math.abs(progress.current - smooth) * 60);
         travel += dt * ((1.1 + vel) * (1 - ease(c4)) - ease(c4) * 4.5);
         pMat.uniforms.uTravel.value = travel;
         pMat.uniforms.uCam.value = camera.position.z;
+        pMat.uniforms.uWarm.value = ease(c4);
+        // drive the HTML layer (hospital, windows) from the same clock
+        const hv = ease(c3).toFixed(3), pv = c4.toFixed(3);
+        if (hv !== lastHold || pv !== lastPay) { el.style.setProperty("--hold", hv); el.style.setProperty("--pay", pv); lastHold = hv; lastPay = pv; }
         for (const t of tiles) {
           const scanned = t.home.z > scanZ || c > 1;
           if (c < 1) tmp.copy(scanned ? cBlue : cIdle);
@@ -276,8 +354,11 @@ export default function DocTunnel() {
             const ang = (i / ring.length) * Math.PI * 2 + time * 0.18 + p4 * 5;
             const r = ringR * (1 - p4);
             v.set(Math.sin(ang) * r, Math.cos(ang) * r * 0.22 + Math.sin(ang * 2 + time) * 0.12 * (1 - p4), Math.cos(ang) * r * 0.9).add(center);
-            q.copy(faceCam); q.multiply(qy.setFromAxisAngle(yAxis, Math.sin(ang) * 0.75));
             const g = ease(clamp(c3 * 1.25 - t.seed * 0.25));
+            const flip = ease(clamp(g * 1.6 - 0.45));
+            q.copy(faceCam); q.multiply(qy.setFromAxisAngle(yAxis, Math.sin(ang) * 0.6 + flip * Math.PI));
+            const want = flip > 0.5 ? holdTex[i] : (t.mat.userData.base as typeof holdTex[number]);
+            if (t.mat.map !== want) { t.mat.map = want; t.mat.needsUpdate = true; }
             t.mesh.position.copy(t.home).lerp(v, g);
             t.mesh.quaternion.copy(t.homeQ).slerp(q, g);
             t.mesh.scale.setScalar((1 - g * 0.22) * (1 - p4 * 0.92));
@@ -294,7 +375,7 @@ export default function DocTunnel() {
         renderer.render(scene, camera);
       };
       frame();
-      cleanup = () => { io.disconnect(); window.removeEventListener("resize", resize); renderer.dispose(); geo.dispose(); frameGeo.dispose(); pGeo.dispose(); pMat.dispose(); sunMat.dispose(); tex.forEach((x) => x.dispose()); renderer.domElement.remove(); };
+      cleanup = () => { io.disconnect(); window.removeEventListener("resize", resize); renderer.dispose(); geo.dispose(); frameGeo.dispose(); pGeo.dispose(); pMat.dispose(); sunMat.dispose(); hTex.dispose(); tex.forEach((x) => x.dispose()); holdTex.forEach((x) => x.dispose()); renderer.domElement.remove(); };
     })();
     return () => { stop = true; cleanup(); };
   }, []);
@@ -310,6 +391,11 @@ export default function DocTunnel() {
           <b><span className="num">${count.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> {chapter === 3 ? "to Lakeview General" : "held by PayPal"}</b>
           <span>{chapter === 3 ? "Paid by PayPal Payouts. The family received $0, and so would a forger." : "21 donors, authorized, not charged. It can only ever pay this bill."}</span>
         </div>
+        <svg className={`dt-ecg c${chapter}`} viewBox="0 0 2400 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <path className="base" d={ECG} />
+          <path className="beat" d={ECG} pathLength={2400} />
+          <path className="beat b2" d={ECG} pathLength={2400} />
+        </svg>
         <div className="dt-grid" aria-hidden="true"><i /><i /></div>
         <div className="dt-ui">
           <div className="dt-left">
