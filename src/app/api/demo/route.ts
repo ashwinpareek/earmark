@@ -93,7 +93,9 @@ export async function POST(req: Request) {
       // One genuine Maya per space: reopen it instead of making a "copy" that would be flagged.
       const existing = (await listCampaigns([space])).find((c) => c.docs.some((d) => d.filename === "maya-estimate.png"));
       const maya = existing ?? (await honest(space));
-      await ensureAarav(space).catch(() => undefined);
+      // Aarav (the next verified patient, for "Pass it on") is prepared in the background,
+      // so opening Maya's campaign never waits on reading his documents.
+      void ensureAarav(space).catch(() => undefined);
       return viewFor(maya, "organizer");
     }
     return viewFor(scenario === "fraud" ? await fraud(space) : await copycat(space), "organizer");

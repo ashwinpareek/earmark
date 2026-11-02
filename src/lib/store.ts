@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { Campaign, TimelineEvent } from "./types";
+import type { Campaign, Extraction, TimelineEvent } from "./types";
 import { uid, nowIso } from "./util";
 import { loadState, saveState, usingPostgres } from "./pg";
 
@@ -42,6 +42,23 @@ interface DB {
   campaigns: Record<string, Campaign>;
   fingerprints: FingerprintEntry[];
   webhookEvents: { id: string; type: string; at: string; verified: boolean }[];
+  /** The AI's reading of each exact file (by SHA-256), so the same bytes are never read twice. */
+  reads?: Record<string, CachedRead>;
+}
+
+export interface CachedRead { extraction: Extraction; model: string; at: string }
+
+export async function cachedRead(sha: string): Promise<CachedRead | undefined> {
+  return tx((db) => db.reads?.[sha]);
+}
+
+export async function saveRead(sha: string, r: Omit<CachedRead, "at">) {
+  return tx((db) => {
+    db.reads ??= {};
+    db.reads[sha] = { ...r, at: new Date().toISOString() };
+    const keys = Object.keys(db.reads);
+    if (keys.length > 300) for (const k of keys.sort((a, b) => db.reads![a].at.localeCompare(db.reads![b].at)).slice(0, keys.length - 300)) delete db.reads[k];
+  });
 }
 
 type G = typeof globalThis & { __earmarkDb?: DB; __earmarkQueue?: Promise<unknown> };

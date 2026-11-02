@@ -4,7 +4,8 @@ import { readDocument } from "../src/lib/reader";
 import { classifyBillLines, answerQuestion } from "../src/lib/agents";
 import type { Campaign, Doc } from "../src/lib/types";
 
-// Exercise the real model code paths with a stubbed Gemini endpoint.
+// Exercise the real model code paths with a stubbed Gemini endpoint (every call really reaches it).
+process.env.READ_CACHE = "off";
 const realFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = realFetch; delete process.env.GEMINI_API_KEY; });
 
