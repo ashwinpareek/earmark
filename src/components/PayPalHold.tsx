@@ -12,8 +12,8 @@ type PayPalNS = {
 };
 declare global { interface Window { paypal?: PayPalNS; } }
 
-function loadSdk(clientId: string, currency: string): Promise<PayPalNS> {
-  const src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=${currency}&intent=authorize&components=buttons&disable-funding=paylater,venmo`;
+function loadSdk(clientId: string, currency: string, paypalOnly = false): Promise<PayPalNS> {
+  const src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=${currency}&intent=authorize&components=buttons&disable-funding=paylater,venmo${paypalOnly ? ",card" : ""}`;
   const existing = document.querySelector<HTMLScriptElement>("script[data-pp-sdk]");
   if (existing && existing.src === src && window.paypal) return Promise.resolve(window.paypal);
   existing?.remove();
@@ -35,11 +35,13 @@ export default function PayPalHold(props: {
   amountLabel: string;
   createOrder: () => Promise<string>;
   confirm: (orderId: string) => Promise<void>;
+  /** Only the PayPal wallet (e.g. the Giving Agent, which saves the donor's PayPal, not a card). */
+  paypalOnly?: boolean;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
-  const { mode, clientId, currency } = props;
+  const { mode, clientId, currency, paypalOnly = false } = props;
   // Keep the latest callbacks in refs so the PayPal buttons render once, not on every parent render.
   const createRef = useRef(props.createOrder);
   const confirmRef = useRef(props.confirm);
@@ -52,7 +54,7 @@ export default function PayPalHold(props: {
     if (mode !== "sandbox" || !clientId || !box.current) return;
     let cancelled = false;
     let instance: { close?: () => void } | undefined;
-    loadSdk(clientId, currency)
+    loadSdk(clientId, currency, paypalOnly)
       .then((pp) => {
         if (cancelled || !box.current) return;
         box.current.innerHTML = "";
@@ -83,7 +85,7 @@ export default function PayPalHold(props: {
       })
       .catch((e) => setErr((e as Error).message));
     return () => { cancelled = true; instance?.close?.(); };
-  }, [mode, clientId, currency]);
+  }, [mode, clientId, currency, paypalOnly]);
 
   if (mode === "mock") {
     return (

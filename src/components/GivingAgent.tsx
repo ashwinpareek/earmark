@@ -153,6 +153,7 @@ function Step({ e, pp, m, onDone }: { e: Ev; pp: { mode: "sandbox" | "mock"; cli
         <span className="tiny muted">This also saves your PayPal for your agent, so it can place future gifts within your {m ? usd(m.limitCents / 100) : ""} limit without asking. You can revoke it any time.</span>
         {approved ? <span className="ok">Approved. Your agent is now active.</span> : (
           <PayPalHold
+            paypalOnly
             mode={pp.mode}
             clientId={pp.clientId}
             currency="USD"
