@@ -4,6 +4,8 @@ import DemoButton from "@/components/DemoButtons";
 import ResetDemo from "@/components/ResetDemo";
 import LabScore from "@/components/LabScore";
 import PledgeStory from "@/components/PledgeStory";
+import FairStory from "@/components/FairStory";
+import TryVisual from "@/components/TryVisual";
 import AgentReel from "@/components/AgentReel";
 import DocTunnel from "@/components/DocTunnel";
 import ScanScene from "@/components/ScanScene";
@@ -144,18 +146,11 @@ export default async function Home() {
         <ScanScene />
       </section>
 
-      <section className="band" aria-labelledby="fair">
-        <div>
-          <h2 id="fair">Fair to real families</h2>
-          <p className="intro">Stopping fraud must never mean turning away a sick child.</p>
-        </div>
-        <div className="checklist">
-          <div><b>Rules never reject anyone</b><span>A failed check puts the campaign on hold with the evidence. A person decides, and the family can explain.</span></div>
-          <div><b>Medicines are covered too</b><span>Up to 10% of the goal for verified pharmacy or supply receipts, paid to the pharmacy.</span></div>
-          <div><b>The family never handles money</b><span>Payments go to verified providers only, so nobody can question where it went.</span></div>
-          <div><b>Built for urgent care</b><span>PayPal holds pledges for up to 29 days. Longer treatments settle bill by bill.</span></div>
-        </div>
-      </section>
+    </div>
+
+    <FairStory />
+
+    <div className="wrap">
 
       <section className="band" aria-labelledby="try">
         <div>
@@ -166,21 +161,25 @@ export default async function Home() {
         </div>
         <div className="tryit three">
           <div className="card lab-card">
+            <TryVisual kind="forge" />
             <h3>Forge a bill yourself</h3>
             <p>Edit Maya&apos;s real estimate in your browser: change the total, the patient, the phone number, hide a note for the AI, or crop and re-save it. Then try to get paid.</p>
             <Link href="/lab" className="btn danger-solid">Open the Forgery Lab</Link>
           </div>
           <div className="card">
+            <TryVisual kind="maya" />
             <h3>Maya needs emergency surgery</h3>
             <p>A genuine estimate, registration card and doctor&apos;s note. Verified in seconds. Pledge, submit the hospital&apos;s bill and a pharmacy receipt, and watch the money split.</p>
             <DemoButton scenario="honest" label="Open Maya's campaign" />
           </div>
           <div className="card">
+            <TryVisual kind="leo" />
             <h3>An urgent appeal for Leo</h3>
             <p>An edited total, a borrowed document number, a mismatched patient and a hidden note telling the AI to approve it.</p>
             <DemoButton scenario="fraud" label="Open Leo's campaign" className="btn danger" />
           </div>
           <div className="card">
+            <TryVisual kind="copy" />
             <h3>A copy of Maya&apos;s campaign</h3>
             <p>A stranger uploads Maya&apos;s real documents to raise money for themselves. The most common scam, caught in one check.</p>
             <DemoButton scenario="copycat" label="Open the copycat" className="btn danger" />
