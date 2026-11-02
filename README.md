@@ -2,7 +2,7 @@
 
 **The best a scammer can do is pay a stranger's hospital bill.**
 
-**[Try to forge a bill →](#the-forgery-lab)** Open `/lab`, edit a real hospital estimate in your browser, and try to raise money with it.
+**Live demo: [earmark-v1ov.onrender.com](https://earmark-v1ov.onrender.com)** (PayPal sandbox + Gemini). Open the [Forgery Lab](https://earmark-v1ov.onrender.com/lab), edit a real hospital estimate in your browser, and try to raise money with it. The first visit after a quiet spell can take up to a minute while the free server wakes.
 
 Earmark is verified medical fundraising on PayPal.
 - **Before a campaign goes live**, an AI reads the hospital's documents and plain rules check them.
@@ -181,6 +181,8 @@ The public ledger (`/ledger`) is an AG Studio report with two pages (Money, Inte
 - **Custom agent: Earmark auditor.** It is built with `directLlmRunner` alongside all five built-in agents, with custom tools defined through `api.defineAiTool`. Ask "Why is Leo's campaign on hold?" and it opens the case file and cites the failed checks. Ask "Trace Grace's $500" and it follows the hold, capture, release and payout with their PayPal IDs.
 
 ### Hosted demo for judges
+
+- **URL:** https://earmark-v1ov.onrender.com (Render free plan, Postgres, PayPal sandbox, Gemini 3.5 Flash). A GitHub Actions job pings it every 10 minutes so it stays awake.
 
 - **Private demo spaces:** every visitor gets their own (a cookie). Demo campaigns, reuse detection, lists and the radar are scoped to it, so judges never see each other's runs or a finished campaign. **Reset my demo** (home page and radar) starts over.
 - **Keep it awake:** Render's free plan sleeps after 15 idle minutes, and the cold start takes about a minute. For judging week, either:

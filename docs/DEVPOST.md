@@ -1,5 +1,7 @@
 # Devpost submission: Earmark
 
+**Live demo:** https://earmark-v1ov.onrender.com · **Code:** https://github.com/ashwinpareek/earmark
+
 Paste each section into the matching Devpost field. **Rewrite "Challenges" and "What I learned" in your own words** — judges read for authenticity, and you'll be asked about it if you win.
 
 **Name:** Earmark
