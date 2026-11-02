@@ -2,6 +2,7 @@ import { z } from "zod";
 import { aiModelName, aiProvider, llmJson, AIError } from "./ai";
 import type { Doc, EvidenceField, Extraction } from "./types";
 import samples from "./sample-extractions.json";
+import { cachedRead, saveRead } from "./store";
 
 // DOCUMENT READER — a multimodal model reads a hospital document (photo, scan or PDF) and
 // returns what is PRINTED on it, field by field. It doesn't judge; the forensic rules in
@@ -80,22 +81,56 @@ export async function readDocument(doc: Doc, buf: Buffer, opts: { fallback?: Ext
     throw new AIError("No AI key is configured, so only the bundled sample documents can be read. Add GEMINI_API_KEY, ANTHROPIC_API_KEY or OPENAI_API_KEY to .env.");
   }
   const hit = SAMPLES[doc.sha256];
-  let raw: unknown;
-  try {
-    raw = await llmJson<unknown>(
-    READER_SYSTEM,
-    `Read this document (uploaded as "${doc.filename}", labelled by the uploader as: ${doc.kind}). Return the JSON object described.`,
-    { attachments: [{ mime: doc.mime, data: buf.toString("base64"), filename: doc.filename }], maxTokens: 3000 },
+  // The same bytes always say the same thing: reuse the AI's earlier reading of this exact file.
+  const useCache = process.env.READ_CACHE !== "off";
+  const cached = useCache ? await cachedRead(doc.sha256).catch(() => undefined) : undefined;
+  if (cached) return { extraction: cached.extraction, model: cached.model };
+  const live = (async () => {
+    const raw = await llmJson<unknown>(
+      READER_SYSTEM,
+      `Read this document (uploaded as "${doc.filename}", labelled by the uploader as: ${doc.kind}). Return the JSON object described.`,
+      { attachments: [{ mime: doc.mime, data: buf.toString("base64"), filename: doc.filename }], maxTokens: 3000 },
     );
     const extraction = ExtractionSchema.parse(raw) as Extraction;
     // Evidence boxes only steer the reviewer's eye; for bundled samples, fall back to the known layout.
     if (!extraction.evidence?.length && hit?.extraction.evidence) extraction.evidence = hit.extraction.evidence;
-    return { extraction, model: aiModelName() };
+    const model = aiModelName();
+    if (useCache) await saveRead(doc.sha256, { extraction, model }).catch(() => undefined);
+    return { extraction, model };
+  })();
+  try {
+    if (!hit) return await live;
+    // A bundled demo document never keeps a judge waiting: if the AI is slow (free-tier queues),
+    // answer from the sample's answer key now and let the AI's reading land in the cache for next time.
+    const slow = new Promise<"slow">((r) => setTimeout(() => r("slow"), SAMPLE_DEADLINE_MS));
+    const first = await Promise.race([live, slow]);
+    if (first !== "slow") return first;
+    live.catch(() => undefined);
+    return { extraction: hit.extraction, model: `sample answer key (${aiModelName()} still reading)` };
   } catch (e) {
     // Quota exhausted, rate-limited, timed out or malformed: the bundled demo documents keep
     // working from their answer key, so judges never hit a dead demo. Real uploads need the AI.
     if (hit) return { extraction: hit.extraction, model: `sample answer key (AI unavailable: ${(e as Error).message.slice(0, 60)})` };
     if (opts.fallback) return { extraction: opts.fallback, model: `Maya's answer key + your edits (AI unavailable: ${(e as Error).message.slice(0, 60)})` };
     throw e;
+  }
+}
+
+const SAMPLE_DEADLINE_MS = Number(process.env.SAMPLE_DEADLINE_MS ?? 20_000);
+
+/** On boot, have the AI read every bundled sample once, so the first judge's demo is fast. */
+export async function warmSampleReads(dir: string) {
+  if (aiProvider() === "offline") return;
+  const { promises: fs } = await import("node:fs");
+  const path = await import("node:path");
+  for (const [sha, s] of Object.entries(SAMPLES)) {
+    if (await cachedRead(sha).catch(() => undefined)) continue;
+    try {
+      const buf = await fs.readFile(path.join(dir, s.file));
+      const mime = s.file.endsWith(".png") ? "image/png" : s.file.endsWith(".pdf") ? "application/pdf" : "image/jpeg";
+      await readDocument({ id: `warm_${sha.slice(0, 8)}`, kind: s.extraction.docType as Doc["kind"], filename: s.file, mime, sha256: sha, size: buf.length, uploadedAt: new Date().toISOString(), uploadedBy: "organizer" } as Doc, buf);
+    } catch (e) {
+      console.warn(`[warm] ${s.file}: ${(e as Error).message.slice(0, 80)}`);
+    }
   }
 }
