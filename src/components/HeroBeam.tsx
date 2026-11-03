@@ -1,4 +1,5 @@
 import Logo from "./Logo";
+import type { BeamCard } from "@/lib/showcase";
 
 // The hero's one idea, shown instead of told: messy uploads stream into Earmark from the left and
 // leave on the right as verified, PayPal-held gifts (or, for a forgery, held for review).
@@ -82,11 +83,11 @@ function DoneCard({ d }: { d: Done }) {
   );
 }
 
-export default function HeroBeam() {
+export default function HeroBeam({ rows = ROWS }: { rows?: BeamCard[][] }) {
   return (
     <div className="hb" aria-hidden="true">
       <div className="hb-rows">
-        {ROWS.map((row, ri) => (
+        {rows.map((row, ri) => (
           <div key={ri} className={`hb-lane l${ri}`}>
             <div className="hb-layer raw-layer"><div className="hb-track">{[...row, ...row].map((c, i) => <RawCard key={i} r={c.raw} />)}</div></div>
             <div className="hb-layer ok-layer"><div className="hb-track">{[...row, ...row].map((c, i) => <DoneCard key={i} d={c.done} />)}</div></div>

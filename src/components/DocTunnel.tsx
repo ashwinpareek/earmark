@@ -25,7 +25,10 @@ const ECG = (() => {
   return d;
 })();
 
-export default function DocTunnel() {
+type Money = { patient: string; pledged: number; donors: number; paid: number; hospital: string; neverCharged: number };
+const EXAMPLE: Money = { patient: "Maya", pledged: 2485, donors: 6, paid: 2295, hospital: "Riverside Children's Hospital", neverCharged: 125.5 };
+
+export default function DocTunnel({ money = EXAMPLE }: { money?: Money }) {
   const section = useRef<HTMLDivElement>(null);
   const canvasBox = useRef<HTMLDivElement>(null);
   const [chapter, setChapter] = useState(0);
@@ -37,12 +40,12 @@ export default function DocTunnel() {
   // the amount in the centre counts up when the holds form and again when the hospital is paid
   useEffect(() => {
     if (chapter < 2) { setCount(0); return; }
-    const target = 2295, from = 0, t0 = performance.now();
+    const target = chapter === 3 ? money.paid : money.pledged, from = 0, t0 = performance.now();
     let raf = 0;
     const tick = (now: number) => { const k = Math.min(1, (now - t0) / 1400); setCount(from + (target - from) * (1 - Math.pow(1 - k, 3))); if (k < 1) raf = requestAnimationFrame(tick); };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [chapter]);
+  }, [chapter, money]);
 
   // Scroll progress through the tall section (0..1), driven by GSAP ScrollTrigger.
   useEffect(() => {
@@ -388,8 +391,8 @@ export default function DocTunnel() {
           {fallback && <div className="dt-still">{TILES.slice(0, 8).map((t) => <img key={t} src={`/tiles/${t}.jpg`} alt="" />)}</div>}
         </div>
         <div className={`dt-paid ${chapter >= 2 ? "on" : ""} ${chapter === 3 ? "warm" : ""}`} aria-hidden="true">
-          <b><span className="num">${count.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> {chapter === 3 ? "to Lakeview General" : "held by PayPal"}</b>
-          <span>{chapter === 3 ? "Paid by PayPal Payouts. The family received $0, and so would a forger." : "21 donors, authorized, not charged. It can only ever pay this bill."}</span>
+          <b><span className="num">${count.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> {chapter === 3 ? `to ${money.hospital.replace(" Hospital", "")}` : `pledged for ${money.patient}`}</b>
+          <span>{chapter === 3 ? `Paid by PayPal Payouts. $${money.neverCharged.toLocaleString("en-US", { minimumFractionDigits: 2 })} was never charged. The family received $0.` : `${money.donors} donors, as PayPal holds: authorized, not charged.`}</span>
         </div>
         <svg className={`dt-ecg c${chapter}`} viewBox="0 0 2400 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
           <path className="base" d={ECG} />

@@ -25,11 +25,14 @@ async function post<T>(url: string, body: unknown): Promise<T> {
   return j as T;
 }
 
-export default function GivingAgent() {
-  const [m, setM] = useState<Mandate | null>(null);
-  const [cat, setCat] = useState<Entry[]>([]);
-  const [pp, setPp] = useState<{ mode: "sandbox" | "mock"; clientId: string | null }>({ mode: "mock", clientId: null });
-  const [loaded, setLoaded] = useState(false);
+export type AgentInitial = { mandate: Mandate | null; catalog: Entry[]; pp: { mode: "sandbox" | "mock"; clientId: string | null } };
+
+export default function GivingAgent({ initial }: { initial?: AgentInitial }) {
+  // The server sends the mandate and catalog with the page, so it never opens on a spinner.
+  const [m, setM] = useState<Mandate | null>(initial?.mandate ?? null);
+  const [cat, setCat] = useState<Entry[]>(initial?.catalog ?? []);
+  const [pp, setPp] = useState<{ mode: "sandbox" | "mock"; clientId: string | null }>(initial?.pp ?? { mode: "mock", clientId: null });
+  const [loaded, setLoaded] = useState(Boolean(initial));
   const [turns, setTurns] = useState<Turn[]>([]);
   const [ask, setAsk] = useState("");
   const [busy, setBusy] = useState(false);

@@ -251,12 +251,12 @@ const theme = studioTheme.withParams({
 
 const noSub = () => () => {};
 
-export default function Ledger({ licenseKey, aiEnabled }: { licenseKey?: string; aiEnabled?: boolean }) {
+export default function Ledger({ licenseKey, aiEnabled, initial, children }: { licenseKey?: string; aiEnabled?: boolean; initial?: LedgerData; children?: React.ReactNode }) {
   const [ask, setAsk] = useState(false);
   const inBrowser = useSyncExternalStore(noSub, () => true, () => false);
-  const [data, setData] = useState<LedgerData | null>(null);
+  const [data, setData] = useState<LedgerData | null>(initial ?? null);
   const [page, setPage] = useState<"money" | "integrity">("money");
-  useEffect(() => { fetch("/api/ledger", { cache: "no-store" }).then((r) => r.json()).then(setData); }, []);
+  useEffect(() => { if (!initial) fetch("/api/ledger", { cache: "no-store" }).then((r) => r.json()).then(setData); }, [initial]);
   const studioData = useMemo(() => (data ? buildData(data) : null), [data]);
   const widgets = useMemo(() => studioWidgets(), []);
   const initialState: AgReportState = useMemo(() => ({ selectedPageId: page, pages: [money, integrity] }), [page]);
@@ -280,8 +280,9 @@ export default function Ledger({ licenseKey, aiEnabled }: { licenseKey?: string;
           )}
         </div>
       </div>
+      {children}
       {!data || !inBrowser ? (
-        <span className="thinking"><span className="spinner" /> Loading the ledger</span>
+        <span className="thinking"><span className="spinner" /> Building the interactive dashboard</span>
       ) : data.campaigns.length === 0 ? (
         <div className="card"><p><strong>No campaigns yet.</strong> <Link href="/">Open a demo campaign</Link> and it will appear here.</p></div>
       ) : (
