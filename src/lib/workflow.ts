@@ -940,3 +940,34 @@ export async function confirmByOrder(campaignId: string, orderId: string) {
   if (d.status !== "held") await confirmDonation(c.id, d.id, orderId);
   return `/c/${c.id}/receipt/${d.id}`;
 }
+
+/** A sandbox donor's pledge placed by the server with that donor's saved PayPal (merchant-initiated,
+ *  the same PayPal call the Giving Agent uses). Seeds the shared demo with real PayPal holds, so the
+ *  ledger and campaign pages show genuine sandbox money movement. Sandbox only. */
+export async function placeSeedHold(campaignId: string, vaultId: string, donorName: string, amount: string, surplus: "release" | "offer", seq: number) {
+  if (paypal.paypalMode() !== "sandbox") throw new HttpError(400, "Seed pledges are sandbox only.");
+  const c = await getCampaign(campaignId);
+  if (!c || c.status !== "live") throw new HttpError(409, "Campaign isn't taking pledges.");
+  const donationId = uid("don");
+  const hold = await paypal.createVaultedHold({
+    vaultId,
+    amount,
+    currency: c.currency,
+    description: `Earmark hold for ${c.patient.displayName}'s hospital bill`,
+    customId: `${c.id}:${donationId}`,
+    invoiceId: donationId,
+    requestId: `seed-${c.id}-${seq}`,
+  });
+  const at = nowIso();
+  return updateCampaign(campaignId, (cc) => {
+    if (cc.donations.some((d) => d.authorizationId === hold.authorizationId)) return structuredClone(cc);
+    cc.donations.push({
+      id: donationId, donorName, donorEmail: `${donorName.split(" ")[0].toLowerCase().replace(/[^a-z]/g, "")}@example.com`, anonymous: false, message: "",
+      pledged: amount, status: "held", createdAt: at, surplus,
+      orderId: hold.orderId, authorizationId: hold.authorizationId, authorizationExpiresAt: hold.expiresAt, authorizedAt: at,
+    });
+    cc.movements.push({ id: uid("mv"), type: "hold", amount, currency: cc.currency, paypalId: hold.authorizationId, status: hold.status, donationId, at, note: "PayPal hold, not a charge" });
+    addEvent(cc, { actor: "paypal", kind: "donation.held", message: `${donorName} pledged ${fmtMoney(amount, cc.currency)}. It's a hold on their PayPal, not a charge.` });
+    return structuredClone(cc);
+  });
+}

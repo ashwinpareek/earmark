@@ -10,6 +10,9 @@ import AgentReel from "@/components/AgentReel";
 import DocTunnel from "@/components/DocTunnel";
 import ScanScene from "@/components/ScanScene";
 import { catalog } from "@/lib/catalog";
+import { showcase } from "@/lib/showcase";
+import JudgeGuide from "@/components/JudgeGuide";
+import { paypalMode } from "@/lib/paypal";
 import Logo, { MARK } from "@/components/Logo";
 
 const money = (v: string) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(Number(v));
@@ -17,9 +20,11 @@ const money = (v: string) => new Intl.NumberFormat("en-US", { style: "currency",
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const families = await catalog().catch(() => []);
+  const [families, show] = await Promise.all([catalog().catch(() => []), showcase().catch(() => ({ beam: undefined, tunnel: undefined }))]);
+  const login = paypalMode() === "sandbox" && process.env.JUDGE_BUYER_EMAIL && process.env.JUDGE_BUYER_PASSWORD ? { email: process.env.JUDGE_BUYER_EMAIL, password: process.env.JUDGE_BUYER_PASSWORD } : null;
   return (
     <>
+    <JudgeGuide login={login} />
     <section className="hx hx-center" aria-labelledby="hx-h">
       <div className="aurora" aria-hidden="true"><i /><i /><i /><i /></div>
       <div className="wrap hx-copy">
@@ -38,7 +43,7 @@ export default async function Home() {
         </div>
         <p className="hx-alt">Or <Link href="/lab">try to forge a bill</Link> and watch Earmark catch it.</p>
       </div>
-      <HeroBeam />
+      <HeroBeam rows={show.beam} />
     </section>
 
     <div className="wrap">
@@ -54,7 +59,7 @@ export default async function Home() {
               <article className="pt-card" key={c.id}>
                 <div className="pt-top">
                   <span className={`pt-avatar a${(i % 3) + 1}`} aria-hidden="true">{c.patient[0]}</span>
-                  <span className="pt-badge">{c.checksFailed === 0 ? `Verified · ${c.checksPassed} checks passed` : "Under review"}</span>
+                  <span className="pt-badge">{c.checksFailed === 0 ? `Verified · ${c.checksTotal} checks, none failed` : "Under review"}</span>
                 </div>
                 <h3>{c.title}</h3>
                 <p className="pt-meta">{c.patient.replace(/\.$/, "")}{c.age !== null ? `, ${c.age}` : ""} · {c.procedure} · {c.hospital}, {c.city}</p>
@@ -78,6 +83,41 @@ export default async function Home() {
           <Link href="/start" className="btn ghost">Start a campaign</Link>
         </div>
       </section>
+
+      <section className="band" aria-labelledby="try">
+        <div>
+          <h2 id="try">Try it</h2>
+          <p className="intro">Demo campaigns built from fictional hospital documents. Open them in order, then the <Link href="/radar">reuse radar</Link>.</p>
+          <p className="intro">Your demo is private to your browser. Start again any time:</p>
+          <div style={{ marginTop: 10 }}><ResetDemo /></div>
+        </div>
+        <div className="tryit three">
+          <div className="card lab-card">
+            <TryVisual kind="forge" />
+            <h3>Forge a bill yourself</h3>
+            <p>Edit Maya&apos;s real estimate in your browser: change the total, the patient, the phone number, hide a note for the AI, or crop and re-save it. Then try to get paid.</p>
+            <Link href="/lab" className="btn danger-solid">Open the Forgery Lab</Link>
+          </div>
+          <div className="card">
+            <TryVisual kind="maya" />
+            <h3>Maya needs emergency surgery</h3>
+            <p>A genuine estimate, registration card and doctor&apos;s note. Verified in seconds. Pledge, submit the hospital&apos;s bill and a pharmacy receipt, and watch the money split.</p>
+            <DemoButton scenario="honest" label="Open Maya's campaign" />
+          </div>
+          <div className="card">
+            <TryVisual kind="leo" />
+            <h3>An urgent appeal for Leo</h3>
+            <p>An edited total, a borrowed document number, a mismatched patient and a hidden note telling the AI to approve it.</p>
+            <DemoButton scenario="fraud" label="Open Leo's campaign" className="btn danger" />
+          </div>
+          <div className="card">
+            <TryVisual kind="copy" />
+            <h3>A copy of Maya&apos;s campaign</h3>
+            <p>A stranger uploads Maya&apos;s real documents to raise money for themselves. The most common scam, caught in one check.</p>
+            <DemoButton scenario="copycat" label="Open the copycat" className="btn danger" />
+          </div>
+        </div>
+      </section>
     </div>
 
     <section className="statement" aria-label="The promise">
@@ -89,7 +129,7 @@ export default async function Home() {
       </div>
     </section>
 
-    <DocTunnel />
+    <DocTunnel money={show.tunnel} />
 
     <PledgeStory />
 
@@ -152,40 +192,6 @@ export default async function Home() {
 
     <div className="wrap">
 
-      <section className="band" aria-labelledby="try">
-        <div>
-          <h2 id="try">Try it</h2>
-          <p className="intro">Demo campaigns built from fictional hospital documents. Open them in order, then the <Link href="/radar">reuse radar</Link>.</p>
-          <p className="intro">Your demo is private to your browser. Start again any time:</p>
-          <div style={{ marginTop: 10 }}><ResetDemo /></div>
-        </div>
-        <div className="tryit three">
-          <div className="card lab-card">
-            <TryVisual kind="forge" />
-            <h3>Forge a bill yourself</h3>
-            <p>Edit Maya&apos;s real estimate in your browser: change the total, the patient, the phone number, hide a note for the AI, or crop and re-save it. Then try to get paid.</p>
-            <Link href="/lab" className="btn danger-solid">Open the Forgery Lab</Link>
-          </div>
-          <div className="card">
-            <TryVisual kind="maya" />
-            <h3>Maya needs emergency surgery</h3>
-            <p>A genuine estimate, registration card and doctor&apos;s note. Verified in seconds. Pledge, submit the hospital&apos;s bill and a pharmacy receipt, and watch the money split.</p>
-            <DemoButton scenario="honest" label="Open Maya's campaign" />
-          </div>
-          <div className="card">
-            <TryVisual kind="leo" />
-            <h3>An urgent appeal for Leo</h3>
-            <p>An edited total, a borrowed document number, a mismatched patient and a hidden note telling the AI to approve it.</p>
-            <DemoButton scenario="fraud" label="Open Leo's campaign" className="btn danger" />
-          </div>
-          <div className="card">
-            <TryVisual kind="copy" />
-            <h3>A copy of Maya&apos;s campaign</h3>
-            <p>A stranger uploads Maya&apos;s real documents to raise money for themselves. The most common scam, caught in one check.</p>
-            <DemoButton scenario="copycat" label="Open the copycat" className="btn danger" />
-          </div>
-        </div>
-      </section>
       <section className="band mark-band" aria-labelledby="mark">
         <div>
           <h2 id="mark">Why it&apos;s called Earmark</h2>

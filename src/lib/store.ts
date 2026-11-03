@@ -47,6 +47,8 @@ interface DB {
   reads?: Record<string, CachedRead>;
   /** Giving Agent mandates, by id. */
   mandates?: Record<string, Mandate>;
+  /** Progress markers for one-time jobs (the shared demo activity seed). */
+  seeded?: Record<string, string>;
 }
 
 export interface CachedRead { extraction: Extraction; model: string; at: string }
@@ -258,4 +260,11 @@ export async function removeUngivenCampaigns(ids: string[]) {
     db.fingerprints = db.fingerprints.filter((f) => db.campaigns[f.campaignId]);
     return n;
   });
+}
+
+export async function seedMark(key: string): Promise<string | undefined> {
+  return tx((db) => db.seeded?.[key]);
+}
+export async function setSeedMark(key: string, value: string) {
+  return tx((db) => { db.seeded ??= {}; db.seeded[key] = value; });
 }

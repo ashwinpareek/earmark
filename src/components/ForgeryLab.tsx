@@ -233,7 +233,7 @@ export default function ForgeryLab() {
 
           <div className="row" style={{ marginTop: 18 }}>
             <button type="button" className="btn" disabled={busy || !ready} onClick={submit}>
-              {busy ? <><span className="spinner light" /> Investigating…</> : changes ? `Submit my forgery (${changes} change${changes > 1 ? "s" : ""})` : "Submit it unchanged"}
+              {busy ? <><span className="spinner light" /> Investigating…</> : changes ? `Submit my forgery (${changes} change${changes > 1 ? "s" : ""})` : "Submit Maya's real bill"}
             </button>
             {changes > 0 && <button type="button" className="btn ghost" onClick={reset}>Start over</button>}
           </div>
@@ -317,7 +317,7 @@ export default function ForgeryLab() {
             {stats.recent.map((a) => (
               <li key={a.campaignId}>
                 <span className={`pill ${a.outcome === "held" ? "fail" : "warn"}`}>{a.outcome === "held" ? "Blocked" : "Live, hospital-only"}</span>
-                <span className="feed-what">{a.edits.length ? a.edits.join(" · ") : "Submitted Maya's page unchanged"}</span>
+                <span className="feed-what">{a.edits.length ? a.edits.join(" · ") : "Submitted Maya's real bill"}</span>
                 <span className="tiny muted">{a.caughtBy.length ? `caught by ${a.caughtBy.length} check${a.caughtBy.length > 1 ? "s" : ""}` : "passed the checks"} · asked for {money(a.requested)} · {ago(a.at)}</span>
               </li>
             ))}

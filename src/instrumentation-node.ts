@@ -3,6 +3,7 @@
 import path from "node:path";
 import { warmSampleReads } from "./lib/reader";
 import { ensureCatalog } from "./lib/catalog";
+import { seedActivity } from "./lib/seed-activity";
 
 if (process.env.NODE_ENV !== "test") {
   setTimeout(() => {
@@ -10,6 +11,8 @@ if (process.env.NODE_ENV !== "test") {
       .then(() => console.log("[warm] sample documents read"))
       .then(() => ensureCatalog())
       .then(() => console.log("[catalog] public campaigns ready"))
+      .then(() => seedActivity())
+      .then((r) => console.log(`[seed] shared demo activity: ${r}`))
       .catch((e) => console.warn("[warm]", (e as Error).message));
   }, 3000);
 }

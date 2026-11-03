@@ -1,10 +1,22 @@
 import type { Metadata } from "next";
 import GivingAgent from "@/components/GivingAgent";
+import { demoSpace } from "@/lib/space";
+import { mandateForSpace } from "@/lib/store";
+import { catalog } from "@/lib/catalog";
+import { publicMandate } from "@/lib/agent-tools";
+import { paypalMode } from "@/lib/paypal";
 
 export const metadata: Metadata = { title: "Your Giving Agent — Earmark" };
 export const dynamic = "force-dynamic";
 
-export default function AgentPage() {
+export default async function AgentPage() {
+  const space = await demoSpace();
+  const [m, cat] = await Promise.all([space ? mandateForSpace(space) : undefined, catalog().catch(() => [])]);
+  const initial = {
+    mandate: m ? publicMandate(m) : null,
+    catalog: cat,
+    pp: { mode: paypalMode() === "sandbox" ? ("sandbox" as const) : ("mock" as const), clientId: paypalMode() === "sandbox" ? process.env.PAYPAL_CLIENT_ID ?? null : null },
+  };
   return (
     <>
       <section className="hx hx-sm" aria-labelledby="ga-h">
@@ -19,7 +31,7 @@ export default function AgentPage() {
         </div>
       </section>
       <div className="wrap">
-        <GivingAgent />
+        <GivingAgent initial={initial} />
       </div>
     </>
   );

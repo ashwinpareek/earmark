@@ -18,9 +18,9 @@ const when = (iso: string) => new Date(iso).toLocaleString([], { dateStyle: "med
 
 // Every document seen in more than one campaign. Refreshes every few seconds so it can
 // stay open on a second screen during the demo.
-export default function Radar() {
-  const [items, setItems] = useState<Item[] | null>(null);
-  const [space, setSpace] = useState<"main" | "demo">("main");
+export default function Radar({ initial }: { initial?: { space: "main" | "demo"; items: Item[] } }) {
+  const [items, setItems] = useState<Item[] | null>(initial?.items ?? null);
+  const [space, setSpace] = useState<"main" | "demo">(initial?.space ?? "main");
   useEffect(() => {
     let alive = true;
     const load = () => fetch("/api/radar", { cache: "no-store" }).then((r) => r.json()).then((j) => { if (alive) { setItems(j.items); setSpace(j.space); } });

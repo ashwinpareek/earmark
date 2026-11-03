@@ -10,7 +10,7 @@ const RUNS: { ask: string; steps: Step[] }[] = [
   { ask: "Give $40 to a child who needs surgery", steps: [
     { t: "Checked your mandate: $100 left, up to $40 a gift" },
     { t: "Searched verified campaigns: 3 found" },
-    { t: "Read Lucia's hospital evidence: 9 checks passed, none failed" },
+    { t: "Read Lucia's hospital evidence: 10 checks, none failed" },
     { t: "$40.00 held for Lucia G.", kind: "gift", sub: "Ear tubes at Riverside Children's · PayPal hold, nothing charged" },
   ] },
   { ask: "Help someone recovering from burns", steps: [
