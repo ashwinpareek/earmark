@@ -1320,7 +1320,7 @@ html.lenis, html.lenis body { height: auto; }
 
 /* ══ Fair to real families: scroll-drawn cards (FairStory) ═══════════════════ */
 .fs { position: relative; background: var(--paper); border-top: 1px solid var(--rule); }
-.fs-inner { height: 100vh; height: 100svh; display: grid; grid-template-columns: minmax(280px, 25vw) 1fr; align-items: center; gap: 48px; padding: 84px 0 32px clamp(20px, 6vw, 96px); overflow: hidden; }
+.fs-inner { background: var(--paper); height: 100vh; height: 100svh; display: grid; grid-template-columns: minmax(280px, 25vw) 1fr; align-items: center; gap: 48px; padding: 84px 0 32px clamp(20px, 6vw, 96px); overflow: hidden; }
 .fs-head h2 { font-size: clamp(38px, 4.2vw, 58px); line-height: 1.02; }
 .fs-head p { color: var(--muted); margin-top: 16px; font-size: 17px; max-width: 28ch; }
 .fs-count { margin-top: 44px; display: flex; align-items: center; gap: 12px; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }

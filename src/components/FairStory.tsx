@@ -164,9 +164,12 @@ export default function FairStory() {
         if (still) { Object.values(tl).forEach((t) => t.progress(1)); return; }
 
         if (wide) {
+          // Pin the inner wrapper, never the <section> itself: GSAP wraps the pinned node in a
+          // spacer div, and if that node is React's own child React crashes when it unmounts it
+          // on client-side navigation ("removeChild … not a child of this node").
           const track = q(".fs-track") as HTMLElement;
           const dist = () => track.scrollWidth - (q(".fs-viewport") as HTMLElement).clientWidth;
-          const move = gsap.to(track, { x: () => -dist(), ease: "none", scrollTrigger: { trigger: el, start: "top top", end: () => `+=${dist() + window.innerHeight * 0.5}`, pin: true, scrub: 0.6, invalidateOnRefresh: true,
+          const move = gsap.to(track, { x: () => -dist(), ease: "none", scrollTrigger: { trigger: q(".fs-inner") as HTMLElement, start: "top top", end: () => `+=${dist() + window.innerHeight * 0.5}`, pin: true, scrub: 0.6, invalidateOnRefresh: true,
             onUpdate: (s) => { const n = Math.min(4, 1 + Math.floor(s.progress * 4)); (q(".fs-count b") as HTMLElement).textContent = `0${n}`; (q(".fs-bar i") as HTMLElement).style.transform = `scaleX(${s.progress})`; } } });
           el.querySelectorAll<HTMLElement>(".fs-card").forEach((c) => {
             const t = tl[c.dataset.k!];
