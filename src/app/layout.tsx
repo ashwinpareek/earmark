@@ -3,6 +3,7 @@ import Link from "next/link";
 import "@fontsource-variable/manrope/index.css";
 import "@fontsource-variable/fraunces/full.css";
 import "./globals.css";
+import TextSize from "@/components/TextSize";
 import Logo from "@/components/Logo";
 import Splash from "@/components/Splash";
 import MobileDock from "@/components/MobileDock";
@@ -50,9 +51,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </span>
               <Link href="/agent" className="nav-agent">Giving Agent</Link>
               <Link href="/lab" className="nav-lab">Forgery Lab</Link>
+              <Link href="/how-it-works" className="hide-sm">How it works</Link>
               <Link href="/campaigns" className="hide-sm">Campaigns</Link>
               <Link href="/review" className="hide-sm">Review</Link>
               <Link href="/ledger" className="hide-sm">Ledger</Link>
+              <TextSize />
               <Link href="/start" className="btn sm">Start a campaign</Link>
             </nav>
           </div>
@@ -62,6 +65,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="wrap foot-grid">
             <div className="foot-brand"><Logo size={34} /><div><b>Earmark</b><span>Donations that can only pay the hospital.</span></div></div>
             <nav aria-label="Footer">
+              <Link href="/how-it-works">How it works</Link>
+              <Link href="/how-it-works#limits">Limits and safeguards</Link>
               <Link href="/lab">Forgery Lab</Link>
               <Link href="/campaigns">Campaigns</Link>
               <Link href="/ledger">Public ledger</Link>

@@ -8,7 +8,7 @@ import FairStory from "@/components/FairStory";
 import TryVisual from "@/components/TryVisual";
 import AgentReel from "@/components/AgentReel";
 import DocTunnel from "@/components/DocTunnel";
-import ScanScene from "@/components/ScanScene";
+import MoneyPath from "@/components/MoneyPath";
 import { catalog } from "@/lib/catalog";
 import { showcase } from "@/lib/showcase";
 import JudgeGuide from "@/components/JudgeGuide";
@@ -147,43 +147,13 @@ export default async function Home() {
     </section>
 
     <div className="wrap">
-      <section className="duo" aria-labelledby="built">
-        <h2 id="built" className="sr">What Earmark is built on</h2>
-        <div className="duo-card pp">
-          <span className="duo-tag">PayPal moves the money</span>
-          <p className="duo-lead">Holds, fair shares and payouts. Every cent is a PayPal object you can look up.</p>
-          <ul>
-            <li><b>Orders v2 authorizations</b> hold each pledge without charging it</li>
-            <li><b>Partial capture</b> collects only each donor&apos;s fair share; the rest is released</li>
-            <li><b>Payouts</b> pay the registry-verified hospital, never the family</li>
-            <li><b>Agent Toolkit</b> lets any donor ask PayPal to confirm their receipt</li>
-          </ul>
-        </div>
-        <div className="duo-card ai">
-          <span className="duo-tag">AI reads the paperwork</span>
-          <p className="duo-lead">The AI reads and explains. Plain rules decide. Only code moves money.</p>
-          <ul>
-            <li><b>Gemini</b> reads bills, estimates and phone photos</li>
-            <li><b>Points at every forged value</b> with a box on the page</li>
-            <li><b>Writes the reviewer&apos;s case notes</b> with the evidence</li>
-            <li><b>An auditor agent</b> answers questions from the public ledger</li>
-          </ul>
-        </div>
-      </section>
-
-      <p className="fine wide-fine">
-        Medical crowdfunding runs on trust: fake campaigns borrow real children&apos;s photos, inflate the target and keep the money. Earmark removes
-        the trust step. An AI reads the hospital&apos;s documents, plain rules check every claim, and PayPal holds make sure the money can only ever
-        reach the verified bill.
-      </p>
-
-
-      <section className="band wide" aria-labelledby="checks">
+      <section className="band money-band" aria-labelledby="where">
         <div>
-          <h2 id="checks">What Earmark checks</h2>
-          <p className="intro">Gemini reads the page. Plain rules decide, and every result points at its evidence. Watch the same scan catch a forged copy.</p>
+          <h2 id="where">Where your money goes</h2>
+          <p className="intro">Four steps, and only one place the money can end up. These are the real proportions from Maya&apos;s campaign on the PayPal sandbox, where the final bill came in under the pledges.</p>
+          <p className="intro"><Link href="/how-it-works">How it works, in detail</Link> · <Link href="/how-it-works#limits">Limits and safeguards</Link></p>
         </div>
-        <ScanScene />
+        <MoneyPath picker hospital="Riverside Children's" share={0.9495} caption="Every one of Maya's six donors paid the same 94.95% of their pledge." />
       </section>
 
     </div>

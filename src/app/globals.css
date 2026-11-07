@@ -42,8 +42,8 @@ p { margin: 0; }
 .num { font-variant-numeric: tabular-nums; }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
 .muted { color: var(--muted); }
-.small { font-size: 14px; }
-.tiny { font-size: 13px; }
+.small { font-size: 15px; }
+.tiny { font-size: 14px; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* ── Shell ─────────────────────────────────────────────── */
@@ -1462,3 +1462,72 @@ html.lenis, html.lenis body { height: auto; }
 .lg-recent code { font-size: 12px; }
 @media (max-width: 1100px) { .lg-kpis { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 640px) { .lg-kpis { grid-template-columns: repeat(2, 1fr); } .lg-recent { overflow-x: auto; } .lg-recent table { min-width: 620px; } }
+
+/* ══ Where your money goes (MoneyPath) ══════════════════════════════════════ */
+.mp { display: grid; gap: 14px; }
+.mp-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 15px; color: var(--muted); }
+.mp-pick button { min-height: 44px; min-width: 64px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--rule); background: var(--surface); color: var(--ink); font: 700 16px var(--font); cursor: pointer; }
+.mp-pick button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+.mp-pick button:focus-visible { outline: 3px solid var(--warm); outline-offset: 2px; }
+.mp-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; position: relative; }
+.mp-steps::before { content: ""; position: absolute; left: 22px; right: 22px; top: 22px; height: 2px; background: linear-gradient(90deg, var(--held), var(--warm) 66%, var(--paid)); transform-origin: left; animation: mp-line 1.1s var(--ease) both; }
+@keyframes mp-line { from { transform: scaleX(0); } }
+.mp-steps li { position: relative; display: grid; gap: 6px; align-content: start; animation: mp-in .6s var(--ease) both; }
+@keyframes mp-in { from { opacity: 0; transform: translateY(10px); } }
+.mp-dot { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 17px; color: #fff; background: var(--held); box-shadow: 0 0 0 5px var(--paper); position: relative; }
+.mp-check .mp-dot { background: var(--ink); }
+.mp-pay .mp-dot { background: var(--warm); }
+.mp-back .mp-dot { background: var(--paid); }
+.mp-steps b { font-size: 17px; line-height: 1.3; color: var(--ink); font-variant-numeric: tabular-nums; }
+.mp-steps li > span:last-child { font-size: 15px; line-height: 1.5; color: var(--muted); }
+.mp-foot { margin: 4px 0 0; font-size: 15px; color: var(--muted); }
+.mp-foot b { color: var(--ink); }
+.card .mp-steps { grid-template-columns: 1fr; gap: 10px; }
+.card .mp-steps::before { left: 21px; right: auto; top: 22px; bottom: 22px; width: 2px; height: auto; background: linear-gradient(180deg, var(--held), var(--warm) 66%, var(--paid)); transform-origin: top; animation-name: mp-line-v; }
+@keyframes mp-line-v { from { transform: scaleY(0); } }
+.card .mp-steps li { grid-template-columns: 44px 1fr; column-gap: 12px; }
+.card .mp-steps li > b, .card .mp-steps li > span:last-child { grid-column: 2; }
+.card .mp-dot { grid-row: span 2; }
+.card .mp-steps b { font-size: 15.5px; } .card .mp-steps li > span:last-child { font-size: 14px; }
+@media (max-width: 760px) {
+  .mp-steps { grid-template-columns: 1fr; }
+  .mp-steps::before { left: 21px; right: auto; top: 22px; bottom: 22px; width: 2px; height: auto; transform-origin: top; animation-name: mp-line-v; background: linear-gradient(180deg, var(--held), var(--warm) 66%, var(--paid)); }
+  .mp-steps li { grid-template-columns: 44px 1fr; column-gap: 12px; }
+  .mp-steps li > b, .mp-steps li > span:last-child { grid-column: 2; }
+  .mp-dot { grid-row: span 2; }
+}
+@media (prefers-reduced-motion: reduce) { .mp-steps::before, .mp-steps li { animation: none; } }
+
+/* ══ How it works ═══════════════════════════════════════════════════════════ */
+.how-head { padding-top: 48px; padding-bottom: 8px; }
+.how-head h1 { font-family: var(--serif); font-weight: 500; font-size: clamp(40px, 5vw, 64px); letter-spacing: -0.02em; line-height: 1.02; margin: 0; }
+.how-head .lede { max-width: 62ch; font-size: 19px; color: var(--muted); margin-top: 16px; }
+.how-toc { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+.how-toc a { min-height: 44px; display: inline-flex; align-items: center; padding: 0 16px; border-radius: 999px; border: 1px solid var(--rule); background: var(--surface); color: var(--ink); text-decoration: none; font-weight: 600; font-size: 15px; }
+.how-toc a:hover { border-color: var(--ink); }
+.faq { display: grid; gap: 10px; }
+.faq details { background: var(--surface); border: 1px solid var(--rule); border-radius: 16px; padding: 0 20px; }
+.faq summary { cursor: pointer; list-style: none; min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 700; font-size: 17px; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; font-size: 22px; font-weight: 500; color: var(--muted); transition: transform .3s var(--ease); }
+.faq details[open] summary::after { transform: rotate(45deg); }
+.faq summary:focus-visible { outline: 3px solid var(--warm); outline-offset: 4px; border-radius: 8px; }
+.faq details p { margin: 0 0 18px; font-size: 16px; line-height: 1.65; color: var(--ink-2, #353a5c); }
+.money-band .intro a { font-weight: 700; }
+.ev-box.read { border-color: var(--paid, #0f8a64); border-style: dashed; }
+.ev-box.read i, .ev-n.read { background: var(--paid, #0f8a64); }
+
+/* ══ Readability pass (reviews: larger default text, 44px targets) ═════════ */
+body { font-size: 17px; }
+input, textarea, select { font-size: 16px; min-height: 44px; }
+textarea { min-height: 88px; }
+.btn { min-height: 44px; font-size: 16px; }
+.btn.sm { min-height: 38px; font-size: 14px; }
+.amounts button { min-height: 44px; }
+html.text-lg { font-size: 112.5%; }
+html.text-lg body { font-size: 19px; }
+html.text-lg .tiny, html.text-lg .small { font-size: 16px !important; }
+.text-toggle { min-height: 36px; min-width: 44px; border-radius: 999px; border: 1px solid var(--rule); background: var(--surface); color: var(--ink); font: 700 14px/1 var(--font); cursor: pointer; padding: 0 12px; }
+.text-toggle[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.text-toggle:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
