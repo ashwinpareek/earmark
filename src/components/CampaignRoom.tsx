@@ -7,6 +7,7 @@ import type { Check, Role, QA } from "@/lib/types";
 import PayPalHold from "./PayPalHold";
 import Receipt from "./Receipt";
 import EvidenceView from "./EvidenceView";
+import MoneyPath from "./MoneyPath";
 
 type Status = { paypal: "sandbox" | "mock"; paypalClientId: string | null; ai: string; model: string };
 type Next = { id: string; title: string; patient: string; hospital: string; needs: string } | null;
@@ -112,8 +113,16 @@ export default function CampaignRoom({ id }: { id: string }) {
           {c.settlement && <Settlement c={c} hosp={hosp} act={act} />}
           {c.billReview && <BillReviewSection c={c} />}
 
-          <section className="section" aria-labelledby="verif" style={{ marginTop: c.settlement || c.billReview ? 28 : 6 }}>
-            <h2 id="verif">Document check</h2>
+          {c.facts.length > 0 && (
+            <section className="section" aria-labelledby="facts" style={{ marginTop: c.settlement || c.billReview ? 28 : 6 }}>
+              <h2 id="facts">What Gemini read</h2>
+              <p className="tiny muted" style={{ marginBottom: 8 }}>Facts the AI pulled from the hospital&apos;s documents. The AI only reads: the checks below decide.</p>
+              <ul className="facts">{c.facts.map((f, i) => <li key={i}>{f}</li>)}</ul>
+            </section>
+          )}
+
+          <section className="section" aria-labelledby="verif" style={{ marginTop: c.facts.length > 0 ? 28 : c.settlement || c.billReview ? 28 : 6 }}>
+            <h2 id="verif">What code checked</h2>
             <Verdict c={c} animate={firstLoad.current} />
             <CheckList checks={c.verification?.checks ?? []} animate={firstLoad.current} role={role} />
           </section>
@@ -121,13 +130,6 @@ export default function CampaignRoom({ id }: { id: string }) {
           <EvidenceView c={c} role={role} />
 
           {c.careCosts.length > 0 && <CareSection c={c} role={role} />}
-
-          {c.facts.length > 0 && (
-            <section className="section" aria-labelledby="facts">
-              <h2 id="facts">Verified facts</h2>
-              <ul className="facts">{c.facts.map((f, i) => <li key={i}>{f}</li>)}</ul>
-            </section>
-          )}
 
           {c.story && (
             <section className="section" aria-labelledby="story">
@@ -374,6 +376,7 @@ function DonatePanel({ c, status, act, reload }: { c: View; status: Status | nul
             <label className="check-line"><input type="radio" name="surplus" checked={surplus === "release"} onChange={() => setSurplus("release")} /> <span><b>Release the rest — don&apos;t charge me</b> <span className="tiny muted">(recommended)</span></span></label>
             <label className="check-line"><input type="radio" name="surplus" checked={surplus === "offer"} onChange={() => setSurplus("offer")} /> <span><b>Offer me another verified patient</b><span className="tiny muted"> I&apos;ll approve it myself, as a new pledge. Nothing moves without my click.</span></span></label>
           </fieldset>
+          {!fromOffer && valid && <MoneyPath amount={Number(amount)} hospital={c.provider?.name ?? "the hospital"} />}
           <p className="tiny muted">This is a hold on your PayPal, not a payment. You&apos;re charged only your share of the hospital&apos;s verified final bill, never more than you pledge. Anything unused is released. Pledges close once the verified goal is reached. Holds last up to 29 days, which suits urgent treatment.</p>
           {valid && status ? (
             <PayPalHold

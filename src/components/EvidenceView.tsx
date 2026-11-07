@@ -22,12 +22,14 @@ const FIELDS: Record<string, EvidenceField[]> = {
 
 const KIND: Record<string, string> = { estimate: "Estimate", identity: "Registration card", medical_note: "Clinical note", final_bill: "Final bill", receipt: "Care receipt" };
 
-type Box = { key: string; labels: string[]; status: "fail" | "warn"; box: [number, number, number, number] };
+const FIELD_LABEL: Partial<Record<EvidenceField, string>> = { total: "Total", documentNumber: "Document number", documentDate: "Date", patientName: "Patient name", patientAge: "Patient age", patientDob: "Date of birth", providerPhone: "Hospital phone", providerRegistrationNo: "Hospital registration" };
+
+type Box = { key: string; labels: string[]; status: "fail" | "warn" | "read"; box: [number, number, number, number] };
 
 export default function EvidenceView({ c, role }: { c: CampaignView; role: Role }) {
   const [xray, setXray] = useState(false);
   const [dims, setDims] = useState<Record<string, [number, number]>>({});
-  const pages = useMemo(() => {
+  const { flagged, out: pages } = useMemo(() => {
     const checks: Check[] = [...(c.verification?.checks ?? []), ...(c.billReview?.checks ?? [])].filter((k) => k.status !== "pass");
     const out: { docId: string; kind: string; boxes: Box[] }[] = [];
     for (const d of c.docs) {
@@ -49,7 +51,25 @@ export default function EvidenceView({ c, role }: { c: CampaignView; role: Role 
       boxes.sort((a, b) => a.box[0] - b.box[0] || a.box[1] - b.box[1]);
       if (boxes.length && d.mime.startsWith("image/")) out.push({ docId: d.id, kind: d.kind, boxes });
     }
-    return out;
+    if (out.length) return { flagged: true, out };
+    // Nothing flagged: show where Gemini read each value it extracted, so a reviewer can see
+    // the AI's evidence for a verified campaign too, not just for a caught forgery.
+    for (const d of c.docs) {
+      if (!d.mime.startsWith("image/")) continue;
+      const ev: { field: EvidenceField; box: [number, number, number, number] }[] = ("extraction" in d && d.extraction?.evidence) || [];
+      const boxes: Box[] = [];
+      for (const e of ev) {
+        const label = FIELD_LABEL[e.field];
+        if (!label) continue;
+        const key = e.box.join(",");
+        const same = boxes.find((b) => b.key === key);
+        if (same) { if (!same.labels.includes(label)) same.labels.push(label); }
+        else boxes.push({ key, labels: [label], status: "read", box: e.box });
+      }
+      boxes.sort((a, b) => a.box[0] - b.box[0] || a.box[1] - b.box[1]);
+      if (boxes.length) out.push({ docId: d.id, kind: d.kind, boxes: boxes.slice(0, 6) });
+    }
+    return { flagged: false, out: out.slice(0, 2) };
   }, [c]);
 
   if (role === "donor" || pages.length === 0) return null;
@@ -58,13 +78,13 @@ export default function EvidenceView({ c, role }: { c: CampaignView; role: Role 
   return (
     <section className="section" aria-labelledby="evid">
       <div className="evidence-head">
-        <h2 id="evid">Where the problems are</h2>
+        <h2 id="evid">{flagged ? "Where the problems are" : "Where Gemini read it"}</h2>
         <button type="button" className={`btn sm ${xray ? "" : "ghost"}`} aria-pressed={xray} onClick={() => setXray((v) => !v)}>
           {xray ? "X-ray on" : "X-ray"}
         </button>
       </div>
       <p className="tiny muted" style={{ marginBottom: 10 }}>
-        Each box marks the printed value a check disagreed with; the list shows it enlarged. {hasHidden ? "Turn on X-ray to read text printed almost white-on-white. " : ""}Only the family, hospital and reviewers see this.
+        {flagged ? "Each box marks the printed value a check disagreed with; the list shows it enlarged. " : "Each box marks where on the page the AI found a value the checks then used, shown enlarged. "}{hasHidden ? "Turn on X-ray to read text printed almost white-on-white. " : ""}Only the family, hospital and reviewers see this.
       </p>
       <div className="evidence">
         {pages.map((p) => {
@@ -75,7 +95,7 @@ export default function EvidenceView({ c, role }: { c: CampaignView; role: Role 
             <figure key={p.docId} className={`ev-page ${xray ? "xray" : ""}`}>
               <div className="ev-img">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={src} alt={`${KIND[p.kind] ?? p.kind} with flagged fields marked`} onLoad={(e) => { const i = e.currentTarget; setDims((a) => ({ ...a, [p.docId]: [i.naturalWidth, i.naturalHeight] })); }} />
+                <img src={src} alt={`${KIND[p.kind] ?? p.kind} with ${flagged ? "flagged" : "extracted"} fields marked`} onLoad={(e) => { const i = e.currentTarget; setDims((a) => ({ ...a, [p.docId]: [i.naturalWidth, i.naturalHeight] })); }} />
                 {p.boxes.map((b, i) => (
                   <span
                     key={b.key}
@@ -101,7 +121,7 @@ export default function EvidenceView({ c, role }: { c: CampaignView; role: Role 
                           <div
                             className="ev-zoom"
                             role="img"
-                            aria-label={`Enlarged view of the flagged area for ${b.labels.join(", ")}`}
+                            aria-label={`Enlarged view of the area for ${b.labels.join(", ")}`}
                             style={{
                               backgroundImage: `url(${src})`,
                               aspectRatio: `${(w * ar) / h}`,
