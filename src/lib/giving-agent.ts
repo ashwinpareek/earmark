@@ -59,6 +59,29 @@ const label = (name: string, args: Record<string, unknown>) =>
         : name === "give" ? `Proposed $${Number(args.amount_usd ?? 0).toFixed(2)}` : name;
 
 export async function runGivingAgent(message: string, tools: AgentTools): Promise<AgentEvent[]> {
+  return withMandateNotice(message, tools, await planGifts(message, tools));
+}
+
+// If the donor asks for more than the mandate allows, code says so plainly, whatever the model
+// decides to do about it. (The give tool would refuse it anyway; this makes the refusal visible.)
+async function withMandateNotice(message: string, tools: AgentTools, events: AgentEvent[]): Promise<AgentEvent[]> {
+  const asked = message.match(/\$\s?(\d{1,6}(?:\.\d{1,2})?)/);
+  if (!asked) return events;
+  const askedCents = Math.round(Number(asked[1]) * 100);
+  const m = (await tools.mandate()) as { remaining: string; perGift: string };
+  const per = Math.round(Number(m.perGift) * 100), left = Math.round(Number(m.remaining) * 100);
+  const cap = Math.min(per, left);
+  if (!(askedCents > cap)) return events;
+  const why = askedCents > per
+    ? `you asked for $${(askedCents / 100).toFixed(2)}, but each gift is capped at $${(per / 100).toFixed(2)}. The most it can propose is $${(cap / 100).toFixed(2)}.`
+    : `you asked for $${(askedCents / 100).toFixed(2)}, but only $${(left / 100).toFixed(2)} of your limit is left.`;
+  const i = events.findIndex((e) => e.kind === "tool" && e.name === "check_mandate");
+  const out = [...events];
+  out.splice(i >= 0 ? i + 1 : 0, 0, { kind: "refused", why });
+  return out;
+}
+
+async function planGifts(message: string, tools: AgentTools): Promise<AgentEvent[]> {
   if (aiProvider() !== "gemini") return fallbackAgent(message, tools, "rules planner, no AI key set");
   try {
     return await geminiAgent(message, tools);

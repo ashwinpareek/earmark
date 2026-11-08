@@ -753,14 +753,18 @@ export async function reuseRadar(space: string) {
   const fps = await fingerprints(space);
   const camps = new Map((await listCampaigns([space])).map((c) => [c.id, c]));
   const groups = new Map<string, typeof fps>();
-  const pics: { phash: string; key: string }[] = [];
+  const pics: { phash: string; key: string; patientKey?: string }[] = [];
+  // Same rule as the "Documents not reused" check: two patients' pages printed on one hospital's
+  // form look alike, so a look-alike only counts as a copy when it's about the same patient
+  // (or the patient can't be read).
+  const samePatient = (a?: string, b?: string) => !a || !b || a === b;
   for (const f of fps) {
     const keys = [`sha:${f.sha256}`, ...(f.fingerprint ? [`fp:${f.fingerprint}`] : [])];
     if (f.phash) {
       // Re-saved copies join the group of the page they look like.
-      const near = pics.find((p) => looksAlike(p.phash, f.phash));
+      const near = pics.find((p) => looksAlike(p.phash, f.phash) && samePatient(p.patientKey, f.patientKey));
       keys.push(near?.key ?? `pic:${f.docId}`);
-      if (!near) pics.push({ phash: f.phash, key: `pic:${f.docId}` });
+      if (!near) pics.push({ phash: f.phash, key: `pic:${f.docId}`, patientKey: f.patientKey });
     }
     const existing = keys.map((k) => groups.get(k)).find(Boolean);
     const g = existing ?? [];
@@ -781,7 +785,7 @@ export async function reuseRadar(space: string) {
       original: { campaignId: first.campaignId, label: first.campaignLabel, status: camps.get(first.campaignId)?.status ?? "unknown", at: first.at },
       copies: ids.filter((x) => x !== first.campaignId).map((cid) => {
         const f = sorted.find((x) => x.campaignId === cid)!;
-        return { campaignId: cid, label: f.campaignLabel, status: camps.get(cid)?.status ?? "unknown", at: f.at, sameFile: f.sha256 === first.sha256, samePicture: f.sha256 !== first.sha256 && looksAlike(f.phash, first.phash) };
+        return { campaignId: cid, label: f.campaignLabel, status: camps.get(cid)?.status ?? "unknown", at: f.at, sameFile: f.sha256 === first.sha256, samePicture: f.sha256 !== first.sha256 && looksAlike(f.phash, first.phash) && samePatient(f.patientKey, first.patientKey) };
       }),
     });
   }

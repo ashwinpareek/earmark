@@ -5,7 +5,7 @@ import PayPalHold from "./PayPalHold";
 
 type Gift = { campaignId: string; donationId: string; patient: string; amount: string; reason: string; authorizationId?: string; at: string; by: "donor" | "agent" };
 type Mandate = { id: string; donorName: string; donorEmail: string; limitCents: number; perGiftCents: number; cause: string; status: "draft" | "active" | "revoked"; hasPayPal: boolean; spent: string; remaining: string; gifts: Gift[] };
-type Entry = { id: string; patient: string; age: number | null; hospital: string; city: string; procedure: string; goal: string; held: string; stillNeeds: string; checksPassed: number; checksTotal: number };
+type Entry = { id: string; patient: string; age: number | null; hospital: string; city: string; procedure: string; goal: string; held: string; stillNeeds: string; checksPassed: number; checksTotal: number; checksFailed?: number };
 type Ev =
   | { kind: "think"; text: string }
   | { kind: "tool"; name: string; label: string }
@@ -87,7 +87,7 @@ export default function GivingAgent({ initial }: { initial?: AgentInitial }) {
               return (
                 <li key={c.id}>
                   <Link href={`/c/${c.id}?role=donor`}>
-                    <span className="ga-cat-top"><b>{c.patient}{c.age !== null ? `, ${c.age}` : ""}</b><span className="ok">{c.checksPassed}/{c.checksTotal} checks</span></span>
+                    <span className="ga-cat-top"><b>{c.patient}{c.age !== null ? `, ${c.age}` : ""}</b><span className="ok" title={`${c.checksPassed} of ${c.checksTotal} checks passed; the rest are advisory notes, not failures`}>{(c.checksFailed ?? 0) === 0 ? `${c.checksTotal} checks, none failed` : `${c.checksFailed} failed`}</span></span>
                     <span className="muted">{c.procedure || "Hospital care"} · {c.hospital}</span>
                     <span className="ga-bar"><i style={{ width: `${pct}%` }} /></span>
                     <span className="muted tiny">{usd(c.held)} held of {usd(c.goal)}</span>
