@@ -9,11 +9,19 @@ import Splash from "@/components/Splash";
 import MobileDock from "@/components/MobileDock";
 import SmoothScroll from "@/components/SmoothScroll";
 import Motion from "@/components/Motion";
+import JudgeTour from "@/components/JudgeTour";
 import { paypalMode } from "@/lib/paypal";
 import { aiProvider, aiModelName } from "@/lib/ai";
 
+const SITE = process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || "https://earmark-v1ov.onrender.com";
+const TITLE = "Earmark — the best a scammer can do is pay a stranger's hospital bill";
+const DESC = "Medical fundraising on PayPal where donations are holds that can only pay a hospital-confirmed bill. Forge a bill in the Forgery Lab and watch Earmark catch it.";
+
 export const metadata: Metadata = {
-  title: "Earmark — the best a scammer can do is pay a stranger's hospital bill",
+  metadataBase: new URL(SITE),
+  openGraph: { title: TITLE, description: DESC, siteName: "Earmark", type: "website", images: [{ url: "/og.jpg", width: 1200, height: 630, alt: "Earmark: give to the hospital bill, not to a promise." }] },
+  twitter: { card: "summary_large_image", title: TITLE, description: DESC, images: ["/og.jpg"] },
+  title: TITLE,
   description: "Medical fundraising on PayPal where donations are holds that can only pay a hospital-confirmed bill. Forge a bill in the Forgery Lab and watch Earmark catch it.",
   icons: { icon: "/favicon.svg" },
 };
@@ -25,6 +33,7 @@ const SPLASH_GATE = `try{var d=document.documentElement;if(sessionStorage.getIte
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const pp = paypalMode();
   const ai = aiProvider();
+  const login = pp === "sandbox" && process.env.JUDGE_BUYER_EMAIL && process.env.JUDGE_BUYER_PASSWORD ? { email: process.env.JUDGE_BUYER_EMAIL, password: process.env.JUDGE_BUYER_PASSWORD } : null;
   return (
     <html lang="en" data-splash="on" suppressHydrationWarning>
       <head>
@@ -75,6 +84,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <p>Built on PayPal (Orders v2, Payouts, Agent Toolkit) and Gemini. Runs on the PayPal sandbox; every hospital, patient and document in the demo is fictional. MIT licensed.</p>
           </div>
         </footer>
+        <JudgeTour login={login} />
         <MobileDock />
         <SmoothScroll />
         <Motion />

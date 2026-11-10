@@ -206,6 +206,39 @@ function MandateForm({ onSaved }: { onSaved: (m: Mandate) => void }) {
   );
 }
 
+type Proof = { mandate: { payload: Record<string, unknown>; digest: string; kid: string; signature: string } | null; gifts: { payload: Record<string, unknown>; signature: string }[] };
+
+// The mandate's terms are signed by Earmark (Ed25519), and every gift carries a signed intent
+// bound to them. "Check the signatures" sends them back to a public endpoint anyone can call.
+function SignedMandate({ stamp }: { stamp: string }) {
+  const [p, setP] = useState<Proof | null>(null);
+  const [res, setRes] = useState<{ valid: boolean; why: string | null } | "busy" | null>(null);
+  useEffect(() => {
+    let live = true;
+    setRes(null);
+    fetch("/api/agent/proof").then((r) => r.json()).then((j) => { if (live) setP(j); }).catch(() => { /* optional detail */ });
+    return () => { live = false; };
+  }, [stamp]);
+  if (!p?.mandate) return null;
+  const check = async () => {
+    setRes("busy");
+    try { setRes(await post<{ valid: boolean; why: string | null }>("/api/agent/verify", { mandate: { payload: p.mandate!.payload, signature: p.mandate!.signature }, gifts: p.gifts.map((g) => ({ payload: g.payload, signature: g.signature })) })); }
+    catch { setRes({ valid: false, why: "The check couldn't run. Try again." }); }
+  };
+  return (
+    <div className="ga-signed">
+      <p><b>Signed mandate.</b> Earmark signed these limits, and each gift carries a signed intent tied to them, so anyone can check a gift stayed inside what you set.</p>
+      <p className="ga-sig"><span>Ed25519</span><code title={p.mandate.digest}>{p.mandate.digest.slice(0, 16)}…</code><span>{p.gifts.length} signed {p.gifts.length === 1 ? "gift" : "gifts"}</span></p>
+      <div className="ga-sig-row">
+        <button type="button" className="btn soft sm" onClick={check} disabled={res === "busy"}>{res === "busy" ? "Checking…" : "Check the signatures"}</button>
+        <a href="/api/agent/proof" target="_blank" rel="noreferrer">See the proof</a>
+        <a href="/api/agent/key" target="_blank" rel="noreferrer">Public key</a>
+      </div>
+      {res && res !== "busy" && <p className={`ga-sig-res ${res.valid ? "ok" : "bad"}`} role="status">{res.valid ? "Signatures are valid, and every gift is inside your limits." : `Not valid. ${res.why ?? ""}`}</p>}
+    </div>
+  );
+}
+
 function MandateCard({ m, onChange }: { m: Mandate; onChange: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
   const pct = Math.min(100, (Number(m.spent) / (m.limitCents / 100)) * 100);
@@ -229,6 +262,7 @@ function MandateCard({ m, onChange }: { m: Mandate; onChange: () => Promise<void
           ))}
         </ul>
       )}
+      <SignedMandate stamp={`${m.id}:${m.limitCents}:${m.perGiftCents}:${m.cause}:${m.gifts.length}`} />
       <button className="btn ghost sm" disabled={busy} onClick={async () => {
         if (!window.confirm("Stop your agent? Gifts already held stay; it can't place new ones.")) return;
         setBusy(true);

@@ -29,6 +29,7 @@ Tell the agent what you care about ("children who need surgery") and set two lim
   - the gift is within the per-gift and total limits, and no more than the patient still needs;
   - one gift per family.
 - **Why a fooled agent is harmless.** Every gift is a PayPal **authorization**, and it can only be collected for a bill the hospital confirms, paid to the hospital. A hijacked agent, or a campaign story that says "AI, give me everything", can at worst place a visible hold, inside your limits, for a verified patient.
+- **Signed mandates.** When you set your limits, Earmark signs them (Ed25519, [`src/lib/mandate-sign.ts`](src/lib/mandate-sign.ts)). Every gift the agent places carries a signed *intent* bound to the digest of that mandate, the same idea as the signed mandates in agent-payment protocols such as AP2, applied to PayPal holds. Anyone with the public key (`/api/agent/key`) can check, without trusting Earmark's database, that a gift was inside limits the donor had set: press **Check the signatures** on the agent page, POST the proof from `/api/agent/proof` to `/api/agent/verify`, or call the MCP tool `verify_signed_mandate`. The donor is named only by a hash of their email.
 - **The token never leaves the server.** The agent can't read the token, and **Stop my agent** deletes it at PayPal.
 - **The agent never dead-ends.** If Gemini is busy or rate-limited, a plain-rules planner takes over with the same tools and the same mandate rules, and the page says so.
 - **The boundary is enforced in CI.** `tests/boundary.test.ts` checks the import graph: the agent module talks to Gemini and cannot reach the PayPal client.
@@ -45,6 +46,7 @@ Verified on the sandbox: a saved-PayPal hold placed by the agent's code path wit
 | `get_campaign_evidence` | Every check with its evidence, so the assistant can explain *why* a campaign is trustworthy |
 | `create_pledge` | Creates a PayPal hold and returns PayPal's approval link. The donor approves it themselves; the assistant can't. |
 | `check_receipt_with_paypal` | Compares a gift with PayPal's own records through PayPal's Agent Toolkit |
+| `verify_signed_mandate` | Checks a Giving Agent mandate's Ed25519 signature and that its signed gifts stayed inside the limits |
 
 Try it from a terminal: `node scripts/mcp-check.mjs https://earmark-v1ov.onrender.com/api/mcp`. It uses the official MCP client.
 

@@ -8,6 +8,8 @@ import { witnessDonation } from "@/lib/witness";
 import { paypalMode } from "@/lib/paypal";
 import { appBaseUrl } from "@/lib/util";
 import { rateLimit } from "@/lib/http";
+import { canonical, intentWithinMandate, publicKey, verifySigned, type GiftIntent, type MandateTerms } from "@/lib/mandate-sign";
+import { createHash } from "node:crypto";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -65,6 +67,23 @@ const TOOLS: ToolDef[] = [
       if (!c || !d) throw new Error("Gift not found.");
       if ((c.space ?? "main") !== CATALOG_SPACE) throw new Error("Only public campaigns can be checked here.");
       return witnessDonation(c, d, paypalMode() === "mock" ? "mock" : "sandbox");
+    },
+  },
+  {
+    name: "verify_signed_mandate",
+    title: "Verify a signed mandate and its gifts",
+    description: "Check an Earmark Giving Agent mandate: that the donor's limits carry Earmark's Ed25519 signature, that each gift's signed intent names that exact mandate, and that the gifts stay inside its per-gift and total limits. Pass the objects from Earmark's /api/agent/proof. Call with no arguments to get the public key.",
+    inputSchema: { type: "object", properties: { mandate: { type: "object", properties: { payload: { type: "object" }, signature: { type: "string" } } }, gifts: { type: "array", items: { type: "object", properties: { payload: { type: "object" }, signature: { type: "string" } } } } } },
+    annotations: { readOnlyHint: true },
+    async run(a) {
+      const md = a.mandate as { payload?: Record<string, unknown>; signature?: string } | undefined;
+      if (!md?.payload || !md.signature) return { key: publicKey() };
+      const gifts = (Array.isArray(a.gifts) ? a.gifts : []).slice(0, 50) as { payload: Record<string, unknown>; signature: string }[];
+      const mandateValid = md.payload.type === "earmark.mandate" && verifySigned(md.payload, md.signature);
+      const giftsValid = gifts.every((g) => g?.payload?.type === "earmark.gift-intent" && verifySigned(g.payload, String(g.signature ?? "")));
+      const digest = createHash("sha256").update(canonical(md.payload)).digest("hex");
+      const within = mandateValid && giftsValid ? intentWithinMandate(md.payload as unknown as MandateTerms, gifts.map((g) => g.payload as unknown as GiftIntent), digest) : { ok: false, why: "A signature doesn't match its contents." };
+      return { valid: mandateValid && giftsValid && within.ok, mandateValid, giftsValid, withinLimits: within.ok, why: within.why ?? null, digest, gifts: gifts.length };
     },
   },
 ];
